@@ -17,6 +17,7 @@ typedef struct Dish {
 #define MENU
 struct Menu;
 typedef struct Menu {
-//TODO fill in
+  int dishCount;
+  Dish* dishes; //Dynamic array of dishCount size
 } Menu;
 #endif
