@@ -1,5 +1,5 @@
-#ifndef RESOURCE
-#define RESOURCE
+#ifndef KITCHEN
+#define KITCHEN 
 
 #include <string.h>
 #include <semaphore.h>
@@ -13,13 +13,13 @@ struct Resource;
 typedef struct Resource {
   ResourceUnit unit;
   int clean_time;
-  sem_t clean;
-  sem_t dirty;
+  sem_t clean; //Initialized to resource count
+  sem_t dirty; //Initialized at 0, signaled when the reource is used
 } Resource;
 
 struct Kitchen {
-  Resoure* resources;
-  sem_t sink;
+  Resource* resources;
+  sem_t sink; //Binary semaphore
 }
 
 #endif
