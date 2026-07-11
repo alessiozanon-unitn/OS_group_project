@@ -5,8 +5,8 @@ clean:
 	rm -f ./src/*.o #Remove object files
 	rm -f ./restaurant #Remove executable
 
-run:
-	./bootstrap.sh $(ARGS)
+run: build
+	./script/bootstrap.sh $(ARGS)
 
 obj/restaurant.o: src/restaurant.c
 	gcc -c src/restaurant.c -o obj/restaurant.o
