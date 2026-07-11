@@ -1,11 +1,10 @@
 #ifndef DISH
 #define DISH
 
-#include <string.h>
+#include "kitchen.h"
 
-struct Dish;
 typedef struct Dish {
-  String* name;
+  char* name;
   int price;
   int time;
   int* requiredCount; //Dynamic array, holds size-1 in first element
@@ -15,7 +14,6 @@ typedef struct Dish {
 
 #ifndef MENU
 #define MENU
-struct Menu;
 typedef struct Menu {
   int dishCount;
   Dish* dishes; //Dynamic array of dishCount size

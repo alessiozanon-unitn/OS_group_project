@@ -3,13 +3,11 @@
 
 #include "menu.h"
 
-struct OrderNode;
-typedef OrderNode {
+typedef struct OrderNode {
   Dish dish;
   bool satisfied;
 } OrderNode;
 
-struct Order;
 typedef struct Order {
   int total_price;
   int total_prep;
