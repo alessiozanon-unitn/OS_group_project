@@ -1,3 +1,7 @@
+#include "menu.h"
+
+Menu* menu;
+
 int main(){
 
 
