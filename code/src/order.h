@@ -4,7 +4,7 @@
 #include "menu.h"
 
 typedef struct OrderNode {
-  Dish dish;
+  Dish* dish;
   bool satisfied;
 } OrderNode;
 
