@@ -1,6 +1,7 @@
 #ifndef ORDER
 #define ORDER
 
+#include "time.h"
 #include "menu.h"
 
 typedef struct OrderNode {
@@ -9,9 +10,9 @@ typedef struct OrderNode {
 } OrderNode;
 
 typedef struct Order {
-  int total_price;
-  int total_prep;
   int count;
+  int patienceLevel;
+  time_t arrivalTime;
   OrderNode* dishList; //Dynamic Array
 } Order;
 #endif
