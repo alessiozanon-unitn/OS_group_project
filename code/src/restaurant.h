@@ -1,11 +1,14 @@
 #ifndef THREADARGS
 #define THREADARGS
 
+#include "kitchen.h"
+#include "order.h"
+
 typedef struct CookArg {
   int randSeed;
   Kitchen* kitchen;
   int rxOrders;
-  int[] txDishes; //Array of size #Waiter
+  int* txDishes; //Array of size #Waiter
   int* busyTime; //Position on the busyTime array
 } CookArg;
 
@@ -18,11 +21,13 @@ typedef struct CookArg {
 typedef struct WaiterArg {
   int randSeed;
   int ID; //Allows cooks to reply properly
-  int[] txOrders; //Array of size #Cook
+  int cookCount; //#Cook
+  int* txOrders; //Array of size #Cook
   int rxDishes;
-  int[] busyTime; //Full array, for reading only
-  Order[] orderTable; //Full array, can see where orders are assigned;
-  int[] rxServing; //Array of size #Max_Customers
+  int* busyTime; //Full array, for reading only
+  int customerCount; //#Max_Customers
+  Order** orderTable; //Full array, can see where orders are assigned;
+  int* txServing; //Array of size #Max_Customers
 } WaiterArg;
 
 /*
@@ -34,9 +39,9 @@ typedef struct WaiterArg {
  */
 
 typedef struct CustomerArg {
-  int randSeed
+  int randSeed;
   Order* orderSlot; //Position in orderTable for their order
-  int sxServing;
+  int rxServing;
 } CustomerArg;
 
 /*
