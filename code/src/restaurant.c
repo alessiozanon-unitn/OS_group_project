@@ -9,15 +9,32 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <pthread.h>
+#include "xoshiro256plusplus.h"
+#include "splitmix64.h"
 
 Menu* menu;
 
 int main(){
-  
-  //TODO temp contnsts, should be read as arguments later
-  const int cookCount = 3;
-  const int waiterCount = 3;
-  const int maxCustomers = 10;
+
+  // Loads env variables
+  const uint cookCount = atoi(getenv("NUM_COOKS"));
+  const uint waiterCount = atoi(getenv("NUM_WAITERS"));
+  const uint maxCustomers = atoi(getenv("MAX_CUSTOMERS"));
+  const uint totalCustomers = atoi(getenv("TOTAL_CUSTOMERS"));
+  const uint randomSeed = atoi(getenv("RANDOM_SEED"));
+  const uint gameSpeed = atoi(getenv("GAME_SPEED"));
+
+  // Splitmix state variable is initialized through the env variable randomSeedù
+  x_splitmix64 = randomSeed;
+
+  // and then used to initialize xoshiro256's random number generator state.
+  // Xoshiro's generator will be used globally through a mutex as to avoid race conditions on its state
+  s[0] = next_splitmix64();
+  s[1] = next_splitmix64();
+  s[2] = next_splitmix64();
+  s[3] = next_splitmix64();
+
+
 
   //Kitchen and menu preparation TODO
   Kitchen* kitchen = malloc(sizeof(Kitchen*));
@@ -31,8 +48,8 @@ int main(){
   //Returns
   int returnCooks[cookCount];
   int returnWaiters[waiterCount];
-  int returnCustomers[maxCustomers]; 
-  
+  int returnCustomers[maxCustomers];
+
   //Pipes
   int ordersPipes[cookCount][2];
   int dishesPipes[waiterCount][2];
@@ -67,7 +84,7 @@ int main(){
   for (int i = 0; i<waiterCount; i++) {
     dishSenders[i] = dishesPipes[i][1];
   }
-  
+
   int servingSenders[maxCustomers];
   for (int i = 0; i<maxCustomers; i++) {
     servingSenders[i] = servingPipes[i][1];
@@ -88,10 +105,9 @@ int main(){
   //Argument arrays (client done later in repeating section)
   CookArg* cookArgs[cookCount];
   WaiterArg* waiterArgs[waiterCount];
-  
+
   for (int i = 0; i<cookCount; i++) {
     cookArgs[i] = malloc(sizeof(CookArg*));
-    cookArgs[i]->randSeed = rand();
     cookArgs[i]->kitchen = kitchen;
     cookArgs[i]->rxOrders = ordersPipes[i][0];
     cookArgs[i]->txDishes = dishSenders;
@@ -99,8 +115,7 @@ int main(){
   }
 
   for (int i = 0; i<waiterCount; i++) {
-    waiterArgs[i] = malloc(sizeof(WaiterArg*)); 
-    waiterArgs[i]->randSeed = rand();
+    waiterArgs[i] = malloc(sizeof(WaiterArg*));
     waiterArgs[i]->ID = i;
     waiterArgs[i]->cookCount = cookCount;
     waiterArgs[i]->txOrders = orderSenders;

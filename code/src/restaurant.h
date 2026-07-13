@@ -5,7 +5,6 @@
 #include "order.h"
 
 typedef struct CookArg {
-  int randSeed;
   Kitchen* kitchen;
   int rxOrders;
   int* txDishes; //Array of size #Waiter
@@ -19,7 +18,6 @@ typedef struct CookArg {
 */
 
 typedef struct WaiterArg {
-  int randSeed;
   int ID; //Allows cooks to reply properly
   int cookCount; //#Cook
   int* txOrders; //Array of size #Cook
@@ -39,7 +37,6 @@ typedef struct WaiterArg {
  */
 
 typedef struct CustomerArg {
-  int randSeed;
   Order* orderSlot; //Position in orderTable for their order
   int rxServing;
 } CustomerArg;

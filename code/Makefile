@@ -1,4 +1,4 @@
-build: obj/restaurant.o obj/cook.o obj/customer.o obj/waiter.o
+build: obj/restaurant.o obj/cook.o obj/customer.o obj/waiter.o obj/splitmix64.o obj/xoshiro256plusplus.o
 	gcc -o restaurant obj/restaurant.o obj/cook.o obj/customer.o obj/waiter.o
 
 clean:
@@ -16,3 +16,7 @@ obj/customer.o: src/customer.c
 	gcc -c src/customer.c -o obj/customer.o
 obj/waiter.o: src/waiter.c
 	gcc -c src/waiter.c -o obj/waiter.o
+obj/splitmix64.o: src/splitmix64.c
+	gcc -c src/splitmix64.c -o obj/splitmix64.o
+obj/xoshiro256plusplus.o: src/xoshiro256plusplus.c
+	gcc -c src/xoshiro256plusplus.c -o obj/xoshiro256plusplus.o

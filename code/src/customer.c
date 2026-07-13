@@ -3,14 +3,12 @@
 #include "order.h"
 #include "restaurant.h"
 #include "customer.h"
+#include "xoshiro256plusplus.h"
 
 extern Menu* menu;
 
 
 void* customer (void* arg) {
-  RandSeed* argument;
-  argument = (RandSeed*)arg;
-  srand(argument->seed); //Seed the rand with the argument TODO replace with good randing
   int sel = menu->dishCount;
   int orderSize = rand()%sel +1; //Choose how many plates, from 1 to the full menu
   Order* order = malloc(sizeof(Order));
@@ -24,6 +22,6 @@ void* customer (void* arg) {
     order->total_prep += order->dishList[i].dish->time; //Add prep time to the count
   }
   //TODO Here patience level can be calculated, when we decide a cap on it
-  
-  
+
+
 }
