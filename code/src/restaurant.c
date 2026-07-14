@@ -8,6 +8,7 @@
 
 #include <stdlib.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <pthread.h>
 #include "xoshiro256plusplus.h"
 #include "splitmix64.h"
@@ -53,20 +54,26 @@ int main(){
 
   //Initializing pipes
   for (int i = 0; i<cookCount; i++) {
-    if (pipe2(ordersPipes[i], O_NONBLOCK) < 0) {
+    if (pipe(ordersPipes[i]) < 0) {
       //Pipe error
+    } else {
+      fcntl(ordersPipes[i], F_SETFL, O_NONBLOCK);
     }
   }
 
   for (int i = 0; i<waiterCount; i++) {
-    if (pipe2(dishesPipes[i], O_NONBLOCK) < 0) {
+    if (pipe(dishesPipes[i]) < 0) {
       //Pipe error
+    } else {
+      fcntl(dishesPipes, F_SETFL, O_NONBLOCK);
     }
   }
 
   for (int i = 0; i<maxCustomers; i++) {
-    if (pipe2(servingPipes[i], O_NONBLOCK) < 0) {
+    if (pipe(servingPipes[i]) < 0) {
       //Pipe error
+    } else {
+      fcntl(servingPipes, F_SETFL, O_NONBLOCK);
     }
   }
 

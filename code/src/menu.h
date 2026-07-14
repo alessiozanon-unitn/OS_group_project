@@ -7,8 +7,9 @@ typedef struct Dish {
   char* name;
   int price;
   int time;
-  int* requiredCount; //Dynamic array, holds size-1 in first element
-  ResourceUnit* requiredTypes; //Dynamic array, size-1 of requiredCount
+  int requiredSize; //Holds size of the following two arrays
+  int* requiredCount; //Holds how much of a resource is needed 
+  int* requiredTypes; //Holds index of resouce needed;
 } Dish;
 #endif
 
@@ -16,6 +17,6 @@ typedef struct Dish {
 #define MENU
 typedef struct Menu {
   int dishCount;
-  Dish* dishes; //Dynamic array of dishCount size
+  Dish* dishes; //Array of dishCount size
 } Menu;
 #endif
