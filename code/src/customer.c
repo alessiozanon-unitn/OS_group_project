@@ -1,3 +1,4 @@
+#include <stdint.h>
 #include <stdlib.h>
 #include "menu.h"
 #include "order.h"
@@ -9,6 +10,17 @@ extern Menu* menu;
 
 
 void* customer (void* arg) {
+  uint64_t s[4]; // Local state to pass to next() to generate random numbers
+
+  CustomerArg* args = (CustomerArg *) arg;
+
+  // xoshiro's generator thread-local state loaded from the main thread
+  s[0] = args->seed[0];
+  s[1] = args->seed[1];
+  s[2] = args->seed[2];
+  s[3] = args->seed[3];
+
+
   int sel = menu->dishCount;
   int orderSize = rand()%sel +1; //Choose how many plates, from 1 to the full menu
   Order* order = malloc(sizeof(Order));

@@ -24,15 +24,9 @@ int main(){
   const uint randomSeed = atoi(getenv("RANDOM_SEED"));
   const uint gameSpeed = atoi(getenv("GAME_SPEED"));
 
-  // Splitmix state variable is initialized through the env variable randomSeedù
+  // Splitmix state variable is initialized through the env variable randomSeed
+  // and then used to initialize the state of the threads' states to use with xoshiro's generator
   x_splitmix64 = randomSeed;
-
-  // and then used to initialize xoshiro256's random number generator state.
-  // Xoshiro's generator will be used globally through a mutex as to avoid race conditions on its state
-  s[0] = next_splitmix64();
-  s[1] = next_splitmix64();
-  s[2] = next_splitmix64();
-  s[3] = next_splitmix64();
 
 
 
@@ -108,6 +102,10 @@ int main(){
 
   for (int i = 0; i<cookCount; i++) {
     cookArgs[i] = malloc(sizeof(CookArg*));
+    cookArgs[i]->seed[0] = next_splitmix64();
+    cookArgs[i]->seed[1] = next_splitmix64();
+    cookArgs[i]->seed[2] = next_splitmix64();
+    cookArgs[i]->seed[3] = next_splitmix64();
     cookArgs[i]->kitchen = kitchen;
     cookArgs[i]->rxOrders = ordersPipes[i][0];
     cookArgs[i]->txDishes = dishSenders;
@@ -116,6 +114,10 @@ int main(){
 
   for (int i = 0; i<waiterCount; i++) {
     waiterArgs[i] = malloc(sizeof(WaiterArg*));
+    waiterArgs[i]->seed[0] = next_splitmix64();
+    waiterArgs[i]->seed[1] = next_splitmix64();
+    waiterArgs[i]->seed[2] = next_splitmix64();
+    waiterArgs[i]->seed[3] = next_splitmix64();
     waiterArgs[i]->ID = i;
     waiterArgs[i]->cookCount = cookCount;
     waiterArgs[i]->txOrders = orderSenders;
