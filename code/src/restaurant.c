@@ -57,7 +57,7 @@ int main(){
     if (pipe(ordersPipes[i]) < 0) {
       //Pipe error
     } else {
-      fcntl(ordersPipes[i], F_SETFL, O_NONBLOCK);
+      fcntl(ordersPipes[i][0], F_SETFL, O_NONBLOCK);
     }
   }
 
@@ -65,7 +65,7 @@ int main(){
     if (pipe(dishesPipes[i]) < 0) {
       //Pipe error
     } else {
-      fcntl(dishesPipes, F_SETFL, O_NONBLOCK);
+      fcntl(dishesPipes[i][0], F_SETFL, O_NONBLOCK);
     }
   }
 
@@ -73,7 +73,7 @@ int main(){
     if (pipe(servingPipes[i]) < 0) {
       //Pipe error
     } else {
-      fcntl(servingPipes, F_SETFL, O_NONBLOCK);
+      fcntl(servingPipes[i][0], F_SETFL, O_NONBLOCK);
     }
   }
 
