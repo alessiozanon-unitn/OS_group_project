@@ -53,19 +53,19 @@ int main(){
 
   //Initializing pipes
   for (int i = 0; i<cookCount; i++) {
-    if (pipe(ordersPipes[i]) == -1) {
+    if (pipe2(ordersPipes[i], O_NONBLOCK) < 0) {
       //Pipe error
     }
   }
 
   for (int i = 0; i<waiterCount; i++) {
-    if (pipe(dishesPipes[i]) == -1) {
+    if (pipe2(dishesPipes[i], O_NONBLOCK) < 0) {
       //Pipe error
     }
   }
 
   for (int i = 0; i<maxCustomers; i++) {
-    if (pipe(servingPipes[i]) == -1) {
+    if (pipe2(servingPipes[i], O_NONBLOCK) < 0) {
       //Pipe error
     }
   }
