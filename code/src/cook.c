@@ -5,64 +5,83 @@
 
 #include <stdlib.h>
 #include <unistd.h>
+#include <math.h>
+#include <semaphore.h>
 
 const int OVERWORK_THRESHOLD = 3;
+extern Menu menu;
+extern int score;
+extern sem_t scoreMutex;
 
-void cookDish(int dishIndex, Kitchen Kitchen) {
-
+bool cookDish(Dish* dish, Kitchen* Kitchen, int* busyTimePosition) {
+  //grab semaphore resources and do the deed
+  //Increase dirty counter and insert new 1s in the array
+  //Return true if cooking happened, false otherwise
 }
 
-void cleanResource(Kitchen* kitchen) {
+bool cookDishDirty(Dish* dish, Kitchen* Kithcen, int* busyTimePosition) {
+  //attempt cleanCook, return true if that worked
+  //On failure of that, cook using the least dirty resources, update evreything accordingly
+  //Subtract score based on resources used
+  //Return true if cooking happened, false otherwise
+}
+
+void cleanResource(Kitchen* kitchen, int* busyTimePosition) {
   //Iterate over all resources
   //Find the ones with the least clean units
   //Among them, find the one with the least dirty units
   //Clean the resource
+  //If sink is busy, just return without waiting
 }
 
 void setBusyTime(int expectedBusy, int* busyTimePosition) {
   
 }
 
-struct TaskQueue;
-typedef struct TaskQueue {
-  int dishIndex;
-  int waiterIndex;
-  struct TaskQueue* next;
-  struct TaskQueue* prev;
-} TaskQueue;
+typedef struct Queue {
+  int queueSize;
+  int* dishIndexes;
+  int* waiterIDs;
+} Queue;
 
-void addTask(TaskQueue** queue, int dishIndex, int waiterIndex) {
-  TaskQueue* newNode = malloc(sizeof(TaskQueue*));
-  newNode->dishIndex = dishIndex;
-  newNode->waiterIndex = waiterIndex;
-  newNode->next = NULL;
-  
-  if (*queue == NULL) {
-    newNode->prev = NULL;
-    *queue = newNode;
-  } else {
-    TaskQueue* expl = *queue;
-    while (expl->next != NULL) {
-      expl = expl->next;
-    }
-    expl->next = newNode;
-    newNode->prev = expl;
+void addTask(Queue* queue, int dish, int waiter) {
+  if (queue == NULL) return;
+
+  if (queue->queueSize == 0) {
+    queue->dishIndexes = malloc(sizeof(int));
+    queue->waiterIDs = malloc(sizeof(int));
+  } else if ((queue->queueSize & (queue->queueSize -1)) == 0) { //Test if queueSize is a power of two, if so then expand array 
+    queue->dishIndexes = realloc(queue->dishIndexes, sizeof(int)*2*queue->queueSize);
+    queue->waiterIDs = realloc(queue->waiterIDs, sizeof(int)*2*queue->queueSize);
   }
-  return;
+  queue->dishIndexes[queue->queueSize] = dish;
+  queue->waiterIDs[queue->queueSize] = waiter;
+  queue->queueSize++; //queueSize acts as the index of the first free slot
 }
 
-void getTask(TaskQueue* queue, int* returnDish, int* returnWaiter) {
-  if (queue == NULL) {
-    *returnDish = -1;
-    *returnWaiter = -1;
-  } else {
-    *returnDish = queue->dishIndex;
-    *returnWaiter = queue->waiterIndex;
-    if (queue->prev != NULL) queue->prev->next = queue->next;
-    if (queue->next != NULL) queue->next->prev = queue->prev;
-    free(queue);
+void rmTask(Queue* queue, int index) {
+  if (queue == NULL) return;
+  
+  if (index < 0) return; //Not valid index
+  if (queue->queueSize <= index) return; //Not valid index
+  queue->queueSize--; //queueSize is now the index of the last valid value
+  if (queue->queueSize == 0) {
+    free(queue->dishIndexes);
+    free(queue->waiterIDs);
+    queue->dishIndexes = NULL;
+    queue->waiterIDs = NULL;
+    return;
   }
-  return;
+  
+  for (int i = index; i<queue->queueSize; i++) { //Move all the elements after index left
+    queue->dishIndexes[i] = queue->dishIndexes[i+1];
+    queue->waiterIDs[i] = queue->waiterIDs[i+1];
+  }
+
+  if ((queue->queueSize & (queue->queueSize-1)) == 0) { //If queueSize is a power of two, half of the array is empty 
+    queue->dishIndexes = realloc(queue->dishIndexes, sizeof(int)*queue->queueSize);
+    queue->waiterIDs = realloc(queue->waiterIDs, sizeof(int)*queue->queueSize);
+  }
 }
 
 void* cook(void* arg) {
@@ -76,8 +95,8 @@ void* cook(void* arg) {
   free(initData);
   
   bool runFlag = true;
-  int queueSize = 0;
-  TaskQueue* queue = NULL;
+  
+  Queue queue = (Queue){.queueSize = 0, .dishIndexes = NULL, .waiterIDs = NULL};
 
   while (runFlag) {
     int receivedOrder[2] = {0, 0};
@@ -85,29 +104,54 @@ void* cook(void* arg) {
     
     if (readStatus != -1) {
       addTask(&queue, receivedOrder[0], receivedOrder[1]);
-      queueSize++; //TODO, make doubly linked and the operations location-agnostic
     }
     
     //Decision making starts
     bool foundTask = false;
+    Dish* toDoDish;
+    Resource* resources = kitchen->resources;
 
     //Iterate over list searching for a dish doable with only clean resources
-    
+    for (int i = 0; i<queue.queueSize && !foundTask; i++) {
+      bool allAvailable = true;
+      Dish toDoDish = menu.dishes[queue.dishIndexes[i]];
+      //Iterate over all resources required by the dish
+      for (int ii = 0; ii<toDoDish.requiredSize && allAvailable; i++) {
+        //Compare the clean dishes to the required amount of dishes
+        int cleanCount;
+        sem_getvalue(&resources[toDoDish.requiredTypes[ii]].clean, &cleanCount);
+        allAvailable = cleanCount >= toDoDish.requiredCount[ii];
+      }
+      foundTask = allAvailable; //If all reosurces are available, the task is found
+    }
 
     if (foundTask) {
       //Prepare that dish
-    } else if (queueSize <= OVERWORK_THRESHOLD) {
-      cleanResource(kitchen);  
+      bool result = cookDish(toDoDish, kitchen, busyTime); 
+    } else if (queue.queueSize <= OVERWORK_THRESHOLD) {
+      cleanResource(kitchen, busyTime);  
     } else {
-      //Iterate over list searching for dish with least score deficit
+      //Do the first possible dish, as most likely to be urgent
+      for (int i = 0; i<queue.queueSize && !foundTask; i++) {
+        bool allAvailable = true;
+        Dish toDoDish = menu.dishes[queue.dishIndexes[i]];
+        //Iterate over all resources required by the dish
+        for (int ii = 0; ii<toDoDish.requiredSize && allAvailable; i++) {
+          //Compare the clean dishes to the required amount of dishes
+          int cleanCount;
+          int dirtyCount;
+          sem_getvalue(&resources[toDoDish.requiredTypes[ii]].clean, &cleanCount);
+          sem_getvalue(&resources[toDoDish.requiredTypes[ii]].dirty, &dirtyCount);
+          allAvailable = cleanCount + dirtyCount >= toDoDish.requiredCount[ii];
+        }
+        foundTask = allAvailable; //If all reosurces are available, the task is found
+      }
       if(foundTask) {
-        //Prepare that dish
-        //Subtract scrore accordingly
+        bool result = cookDishDirty(toDoDish, kitchen, busyTime);
       } else {
-        cleanResource(kitchen);
+        cleanResource(kitchen, busyTime);
       }
     }
   }
-
 
 }; 

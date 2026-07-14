@@ -14,8 +14,8 @@
 #include "splitmix64.h"
 
 Menu* menu;
-
-float score;
+int score;
+sem_t scoreMutex;
 
 int main(){
 
