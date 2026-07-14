@@ -13,6 +13,7 @@ typedef struct Resource {
   int clean_time;
   sem_t clean; //Initialized to resource count
   sem_t dirty; //Initialized at 0, signaled when the reource is used
+  int* dirtyResourceCounters; //Of size resource count, initialized to full zeroes and updated individually
 } Resource;
 
 typedef struct Kitchen {
