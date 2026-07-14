@@ -14,7 +14,8 @@ int load_menu_from(char *file_path){
   }
 
   int dishCount = 0;
-  menu = realloc(menu, (dishCount + 1));
+  menu = malloc(sizeof(Menu));
+  menu->dishes = NULL;
 
   char line[256];
 
@@ -29,8 +30,6 @@ int load_menu_from(char *file_path){
     char* name = strsep(&seek, ",");
     if (!strcmp("name", name))
       continue;
-
-    dishCount++;
 
     // Stuff to build a dish
     int price = atoi(strsep(&seek, ","));
@@ -55,18 +54,23 @@ int load_menu_from(char *file_path){
       requiredSize++;
     }
 
-    Dish *dish = malloc(sizeof(Dish));
+    Dish dish;
 
-    dish->name = name;
-    dish->price = price;
-    dish->time = time;
-    dish->requiredCount = requiredCount;
-    dish->requiredTypes = requiredTypes;
-    dish->requiredSize = requiredSize;
+    dish.name = strdup(name);
+    dish.price = price;
+    dish.time = time;
+    dish.requiredCount = requiredCount;
+    dish.requiredTypes = requiredTypes;
+    dish.requiredSize = requiredSize;
 
+    menu->dishes = realloc(menu->dishes, sizeof(Dish)*(dishCount + 1));
+    menu->dishes[dishCount] = dish;
+    menu->dishCount = dishCount;
 
     dishCount++;
   }
 
+
+  fclose(menu_file);
   return 0;
 }
