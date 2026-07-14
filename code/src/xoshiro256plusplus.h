@@ -23,11 +23,7 @@ IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE. */
 #include <stdint.h>
 #include <pthread.h>
 
-static uint64_t s[4];
-
-static pthread_mutex_t rand_mutex;
-
-// Modified with a mutex as to avoid race conditions on its state (s[4])
-uint64_t next(void);
+// Modified to use a given state rather than having a global one
+uint64_t next(uint64_t* s);
 
 #endif

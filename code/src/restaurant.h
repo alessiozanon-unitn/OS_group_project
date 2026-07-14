@@ -3,8 +3,10 @@
 
 #include "kitchen.h"
 #include "order.h"
+#include <stdint.h>
 
 typedef struct CookArg {
+  uint64_t seed[4];
   Kitchen* kitchen;
   int rxOrders;
   int* txDishes; //Array of size #Waiter
@@ -18,6 +20,7 @@ typedef struct CookArg {
 */
 
 typedef struct WaiterArg {
+  uint64_t seed[4];
   int ID; //Allows cooks to reply properly
   int cookCount; //#Cook
   int* txOrders; //Array of size #Cook
@@ -37,6 +40,7 @@ typedef struct WaiterArg {
  */
 
 typedef struct CustomerArg {
+  uint64_t seed[4];
   Order* orderSlot; //Position in orderTable for their order
   int rxServing;
 } CustomerArg;
