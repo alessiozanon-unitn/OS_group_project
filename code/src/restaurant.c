@@ -14,6 +14,8 @@
 
 Menu* menu;
 
+float score;
+
 int main(){
 
   // Loads env variables
@@ -24,7 +26,7 @@ int main(){
   const uint randomSeed = atoi(getenv("RANDOM_SEED"));
   const uint gameSpeed = atoi(getenv("GAME_SPEED"));
 
-  // Splitmix state variable is initialized through the env variable randomSeedù
+  // Splitmix state variable is initialized through the env variable randomSeed
   x_splitmix64 = randomSeed;
 
   // and then used to initialize xoshiro256's random number generator state.
@@ -125,6 +127,33 @@ int main(){
     waiterArgs[i]->orderTable = orderTable;
     waiterArgs[i]->txServing = servingSenders;
   }
+
+  //Utility variables
+  int customersSent = 0;
+
+  //Start cooks
+  for (int i = 0; i<cookCount; i++) {
+    returnCooks[i] = pthread_create(&Cooks[i], NULL, cook, (void*) cookArgs[i]);
+  }
+
+  //Start waiters
+  for (int i = 0; i<waiterCount; i++) {
+    returnWaiters[i] = pthread_create(&Waiters[i], NULL, waiter, (void*) waiterArgs[i]);
+  }
+
+  //Clients loop
+  while (customersSent < totalCustomers) {
+    //Check if client slots are free TODO
+    //Check if signals received TODO
+    //Update status brief TODO 
+  }
+
+  //Wait for all clients to be satisfied 
+  
+  //Close cooks
+  
+  //Close waiters
+
 
   return 0;
 }
