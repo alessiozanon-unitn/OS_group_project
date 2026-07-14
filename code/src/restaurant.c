@@ -5,12 +5,10 @@
 #include "kitchen.h"
 #include "menu.h"
 #include "order.h"
-
 #include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <pthread.h>
-#include "xoshiro256plusplus.h"
 #include "splitmix64.h"
 
 Menu* menu;
@@ -26,6 +24,8 @@ int main(){
   const uint totalCustomers = atoi(getenv("TOTAL_CUSTOMERS"));
   const uint randomSeed = atoi(getenv("RANDOM_SEED"));
   const uint gameSpeed = atoi(getenv("GAME_SPEED"));
+  const char* menu_file = getenv("MENU_FILE");
+  const char* resources_file = getenv("RESOURCES_FILE");
 
   // Splitmix state variable is initialized through the env variable randomSeed
   // and then used to initialize the state of the threads' states to use with xoshiro's generator
@@ -34,8 +34,12 @@ int main(){
 
 
   //Kitchen and menu preparation TODO
-  Kitchen* kitchen = malloc(sizeof(Kitchen*));
+  Kitchen* kitchen = malloc(sizeof(Kitchen));
+  kitchen->resourceCount = 0;
+  kitchen->resources = NULL;
+  pthread_mutex_init(&kitchen->sink, NULL);
 
+  load_resources_from(resources_file, kitchen);
 
   //PID holders
   pthread_t Cooks[cookCount];
@@ -154,13 +158,13 @@ int main(){
   while (customersSent < totalCustomers) {
     //Check if client slots are free TODO
     //Check if signals received TODO
-    //Update status brief TODO 
+    //Update status brief TODO
   }
 
-  //Wait for all clients to be satisfied 
-  
+  //Wait for all clients to be satisfied
+
   //Close cooks
-  
+
   //Close waiters
 
 

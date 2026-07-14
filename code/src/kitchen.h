@@ -17,4 +17,6 @@ typedef struct Kitchen {
   sem_t sink; //Binary semaphore
 } Kitchen;
 
+int load_resources_from(char* file_path, Kitchen *kitchen);
+
 #endif
