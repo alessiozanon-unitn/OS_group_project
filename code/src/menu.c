@@ -1,11 +1,12 @@
 #include "menu.h"
+#include "kitchen.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 Menu *menu;
 
-int load_menu_from(char *file_path){
+int load_menu_from(const char *file_path, Kitchen *kitchen){
   FILE *menu_file = fopen(file_path, "r");
 
   if(menu_file == NULL){
@@ -35,8 +36,8 @@ int load_menu_from(char *file_path){
     int price = atoi(strsep(&seek, ","));
     int time = atoi(strsep(&seek, ","));
     int requiredSize = 0;
-    int* requiredCount = malloc(0);
-    int* requiredTypes = malloc(0);
+    int* requiredCount = NULL;
+    int* requiredTypes = NULL;
     char *str;
 
     //Iterates over requirements
@@ -46,9 +47,34 @@ int load_menu_from(char *file_path){
 
       //Check if the requirement has > 1 item
       if(strchr(str, ':') != NULL){
+        //Takes name of the resource
         char* str2 = strsep(&str, ":");
-        //requiredTypes[requiredSize] = str2; Needs resource string -> index number conversion
+
+        // Find resource index within kitchen
+        for(int i=0;i<kitchen->resourceCount;i++){
+          if (!strcmp(str2, kitchen->resources[i].name)){
+            //Sets requiredTypes with the index within kitchen's resources
+            requiredTypes[requiredSize] = i;
+            break;
+          }
+        }
+        //Takes number of resources needed
+        str2 = strsep(&str, ":");
+
+        //Sets it
+        requiredCount[requiredSize] = atoi(str2);
+
+
       }else{
+        // Find resource index within kitchen
+        for(int i=0;i<kitchen->resourceCount;i++){
+          if (!strcmp(str, kitchen->resources[i].name)){
+            //Sets requiredTypes with the index within kitchen's resources
+            requiredTypes[requiredSize] = i;
+            break;
+          }
+        }
+
         requiredCount[requiredSize] = 1;
       }
       requiredSize++;
@@ -65,7 +91,7 @@ int load_menu_from(char *file_path){
 
     menu->dishes = realloc(menu->dishes, sizeof(Dish)*(dishCount + 1));
     menu->dishes[dishCount] = dish;
-    menu->dishCount = dishCount;
+    menu->dishCount = dishCount+1;
 
     dishCount++;
   }

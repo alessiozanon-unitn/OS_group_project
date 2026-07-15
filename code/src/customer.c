@@ -20,7 +20,7 @@ void* customer (void* arg) {
   s[2] = args->seed[2];
   s[3] = args->seed[3];
 
-
+  /* DOES NOT COMPILE
   int sel = menu->dishCount;
   int orderSize = rand()%sel +1; //Choose how many plates, from 1 to the full menu
   Order* order = malloc(sizeof(Order));
@@ -32,6 +32,6 @@ void* customer (void* arg) {
     order->total_prep += order->dishList[i].dish->time; //Add prep time to the count
   }
   //TODO Here patience level can be calculated, when we decide a cap on it
-
+  */
 
 }
