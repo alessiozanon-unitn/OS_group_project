@@ -100,8 +100,10 @@ int main(){
 
   //Shared arrays
   int busyTime[cookCount];
+  pthread_mutex_t busyTimeMutex[cookCount];
   for (int i = 0; i<cookCount; i++) {
     busyTime[i] = 0;
+    pthread_mutex_init(busyTimeMutex[i], NULL);
   }
 
   Order* orderTable[maxCustomers];

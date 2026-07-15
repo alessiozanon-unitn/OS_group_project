@@ -34,8 +34,7 @@ void cleanResource(Kitchen* kitchen, int* busyTimePosition) {
   //If sink is busy, just return without waiting
 }
 
-void setBusyTime(int expectedBusy, int* busyTimePosition) {
-  
+void addBusyTime(int expectedBusy, int* busyTimePosition, pthread_mutex_t* busyTimeMutex) {
 }
 
 typedef struct Queue {
