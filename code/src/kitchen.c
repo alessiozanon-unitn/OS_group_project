@@ -4,8 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-
-int load_resources_from(char* file_path, Kitchen *kitchen){
+int load_resources_from(const char* file_path, Kitchen *kitchen){
     FILE *resources_file = fopen(file_path, "r");
 
     if(resources_file == NULL){
@@ -23,25 +22,31 @@ int load_resources_from(char* file_path, Kitchen *kitchen){
 
         char* resource_name = strsep(&seek, ",");
 
-        if (strcmp(resource_name, "resource"))
+        if (!strcmp(resource_name, "resource"))
             continue;
 
         int quantity = atoi(strsep(&seek, ","));
         int clean_time = atoi(strsep(&seek, ","));
 
+        // Temporary resource to then add to the kitchen resource list
         Resource resource;
         resource.name = strdup(resource_name);
         resource.clean_time = clean_time;
+        sem_init(&resource.clean, 0, quantity);
+        sem_init(&resource.dirty, 0, 0);
 
+        resource.dirtyResourceCounters = malloc(sizeof(int)*quantity);
+        for(int i=0; i<quantity; i++){
+          resource.dirtyResourceCounters[i] = 0;
+        }
 
-
-
+        // Added here
+        kitchen->resourceCount++;
+        kitchen->resources = realloc(kitchen->resources, sizeof(Resource)*kitchen->resourceCount);
+        kitchen->resources[kitchen->resourceCount-1] = resource;
     }
 
-    // After the cycle clean, and dirtyResourceCounters must be initialized since then it
-    // resourceCount will be known
-
-
+    fclose(resources_file);
 
     return 0;
 }

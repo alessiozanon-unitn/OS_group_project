@@ -5,13 +5,15 @@
 #include "kitchen.h"
 #include "menu.h"
 #include "order.h"
+#include <semaphore.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <pthread.h>
 #include "splitmix64.h"
+#include "utils.h"
 
-Menu* menu;
+extern Menu* menu;
 int score;
 sem_t scoreMutex;
 
@@ -32,14 +34,18 @@ int main(){
   x_splitmix64 = randomSeed;
 
 
-
-  //Kitchen and menu preparation TODO
+  // Kitchen initalization
   Kitchen* kitchen = malloc(sizeof(Kitchen));
   kitchen->resourceCount = 0;
   kitchen->resources = NULL;
-  pthread_mutex_init(&kitchen->sink, NULL);
+  sem_init(&kitchen->sink, 0, 1);
 
+  // Loads resources to kitchen from file
   load_resources_from(resources_file, kitchen);
+
+  // For debugging
+  //print_kitchen(kitchen);
+
 
   //PID holders
   pthread_t Cooks[cookCount];
