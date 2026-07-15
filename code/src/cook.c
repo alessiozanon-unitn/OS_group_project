@@ -14,10 +14,55 @@ extern Menu menu;
 extern int score;
 extern sem_t scoreMutex;
 
+void addBusyTime(int expectedBusy, atomic_int* busyTimePosition) {
+
+}
+
 bool cookDish(Dish* dish, Kitchen* kitchen, atomic_int* busyTimePosition) {
   //grab semaphore resources and do the deed
   //Increase dirty counter and insert new 1s in the array
   //Return true if cooking happened, false otherwise
+  
+  int resourcesGot[dish->requiredSize];
+  int retval = 0;
+
+  for (int i = 0; i<dish->requiredSize && retval != -1; i++) {
+    resourcesGot[i] = 0;
+    for (int ii = 0; ii<dish->requiredCount[i] && retval != -1; ii++) { //Try to take as many cleans as possible
+      retval = sem_trywait(&kitchen->resources[dish->requiredTypes[i]].clean);
+      if (retval != -1) resourcesGot[i]++; //If clean gotten successfully update counter
+    }
+  }
+  if (retval != -1) {//If all resources aquired, can cook
+    addBusyTime(dish->time, busyTimePosition);
+    
+    //TODO Cook
+
+    //Finished cooking
+    for (int i = 0; i<dish->requiredSize; i++) { //Free all resource types
+      Resource* currentResource = &kitchen->resources[dish->requiredTypes[i]];
+      for (int ii = 0; ii<resourcesGot[i]; ii++) { //Signal as many as were acquired
+        sem_post(&currentResource->dirty); //Signal the dirty instead of clean
+      }
+      sem_wait(&currentResource->dirtyCountersMutex); //Must block to update array
+      for (int ii = currentResource->dirtyDishesCount-1; ii>=0; ii--) { //Shift all array contents right by the new dishes to add
+        currentResource->dirtyResourceCounters[ii+resourcesGot[i]] = currentResource->dirtyResourceCounters[ii];
+      }
+      for (int ii = 0; ii<resourcesGot[i]; ii++) {
+        currentResource->dirtyResourceCounters[ii] = 1; //Insert new "used once" dishes
+      }
+    sem_post(&currentResource->dirtyCountersMutex);
+    }
+
+    return true;
+  } else { //If not all resources acquired, cooking aborted
+    for (int i = 0; i<dish->requiredSize; i++) { //Free all resource types
+      for (int ii = 0; ii<resourcesGot[i]; ii++) { //Signal as many as were acquired
+        sem_post(&kitchen->resources[dish->requiredTypes[i]].clean);
+      }
+    }
+    return false;
+  }
 }
 
 bool cookDishDirty(Dish* dish, Kitchen* kitchen, atomic_int* busyTimePosition) {
@@ -73,11 +118,14 @@ void cleanResource(Kitchen* kitchen, atomic_int* busyTimePosition) {
     retval = sem_trywait(&toClean->dirty);
     if (retval != -1){
       //TODO do the cleaning
+      sem_wait(&toClean->dirtyCountersMutex); //Must block if busy, but usually operations are fast
+      toClean->dirtyDishesCount--; //Reduce count, turning it into the index of the rightmost dirty dish
+      toClean->dirtyResourceCounters[toClean->dirtyDishesCount] = 0; //Void the value
+      sem_post(&toClean->dirtyCountersMutex); //Release block for others
+      sem_post(&toClean->clean);//Increment clean counter
     }
+    sem_post(&kitchen->sink);
   }
-}
-
-void addBusyTime(int expectedBusy, int* busyTimePosition, pthread_mutex_t* busyTimeMutex) {
 }
 
 typedef struct Queue {
@@ -151,49 +199,60 @@ void* cook(void* arg) {
     //Decision making starts
     bool foundTask = false;
     Dish* toDoDish;
+    int taskIndex;
     Resource* resources = kitchen->resources;
 
     //Iterate over list searching for a dish doable with only clean resources
     for (int i = 0; i<queue.queueSize && !foundTask; i++) {
       bool allAvailable = true;
-      Dish toDoDish = menu.dishes[queue.dishIndexes[i]];
+      toDoDish = &menu.dishes[queue.dishIndexes[i]];
+      taskIndex = i;
+      
       //Iterate over all resources required by the dish
-      for (int ii = 0; ii<toDoDish.requiredSize && allAvailable; i++) {
+      for (int ii = 0; ii<toDoDish->requiredSize && allAvailable; i++) {
         //Compare the clean dishes to the required amount of dishes
         int cleanCount;
-        sem_getvalue(&resources[toDoDish.requiredTypes[ii]].clean, &cleanCount);
-        allAvailable = cleanCount >= toDoDish.requiredCount[ii];
+        sem_getvalue(&resources[toDoDish->requiredTypes[ii]].clean, &cleanCount);
+        allAvailable = cleanCount >= toDoDish->requiredCount[ii];
       }
       foundTask = allAvailable; //If all reosurces are available, the task is found
     }
 
     if (foundTask) {
       //Prepare that dish
-      bool result = cookDish(toDoDish, kitchen, busyTime); 
+      bool result = cookDish(toDoDish, kitchen, busyTime);
+      if(result) {//Cooking worked
+        write(txDishes[queue.waiterIDs[taskIndex]], &queue.dishIndexes[taskIndex], sizeof(int)); //Signal the dish is ready
+        rmTask(&queue, taskIndex); //Clear task from queue
+      }
     } else if (queue.queueSize <= OVERWORK_THRESHOLD) {
       cleanResource(kitchen, busyTime);  
     } else {
       //Do the first possible dish, as most likely to be urgent
       for (int i = 0; i<queue.queueSize && !foundTask; i++) {
         bool allAvailable = true;
-        Dish toDoDish = menu.dishes[queue.dishIndexes[i]];
+        toDoDish = &menu.dishes[queue.dishIndexes[i]];
+        taskIndex = i;
         //Iterate over all resources required by the dish
-        for (int ii = 0; ii<toDoDish.requiredSize && allAvailable; i++) {
+        for (int ii = 0; ii<toDoDish->requiredSize && allAvailable; i++) {
           //Compare the clean dishes to the required amount of dishes
           int cleanCount;
           int dirtyCount;
-          sem_getvalue(&resources[toDoDish.requiredTypes[ii]].clean, &cleanCount);
-          sem_getvalue(&resources[toDoDish.requiredTypes[ii]].dirty, &dirtyCount);
-          allAvailable = cleanCount + dirtyCount >= toDoDish.requiredCount[ii];
+          sem_getvalue(&resources[toDoDish->requiredTypes[ii]].clean, &cleanCount);
+          sem_getvalue(&resources[toDoDish->requiredTypes[ii]].dirty, &dirtyCount);
+          allAvailable = cleanCount + dirtyCount >= toDoDish->requiredCount[ii];
         }
         foundTask = allAvailable; //If all reosurces are available, the task is found
       }
       if(foundTask) {
         bool result = cookDishDirty(toDoDish, kitchen, busyTime);
+        if(result) {//Cooking worked
+          write(txDishes[queue.waiterIDs[taskIndex]], &queue.dishIndexes[taskIndex], sizeof(int)); //Signal the dish is ready
+          rmTask(&queue, taskIndex); //Clear task from queue
+        }
       } else {
         cleanResource(kitchen, busyTime);
       }
     }
   }
-
 }; 
