@@ -6,9 +6,9 @@
 typedef struct Resource {
   char* name;
   int clean_time;
-  sem_t clean; //Initialized to resource count
-  sem_t dirty; //Initialized at 0, signaled when the reource is used
-  int* dirtyResourceCounters; //Of size resource count, initialized to full zeroes and updated individually
+  sem_t clean; //Initialized to resource quantity
+  sem_t dirty; //Initialized at 0, signaled when the resource is used
+  int* dirtyResourceCounters; //Of size quantity (clean + dirty), initialized to full zeroes and updated individually
 } Resource;
 
 typedef struct Kitchen {
@@ -17,6 +17,6 @@ typedef struct Kitchen {
   sem_t sink; //Binary semaphore
 } Kitchen;
 
-int load_resources_from(char* file_path, Kitchen *kitchen);
+int load_resources_from(const char* file_path, Kitchen *kitchen);
 
 #endif
