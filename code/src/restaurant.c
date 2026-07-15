@@ -10,6 +10,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <pthread.h>
+#include <stdatomic.h>
 #include "splitmix64.h"
 #include "utils.h"
 
@@ -105,16 +106,16 @@ int main(){
 
 
   //Shared arrays
-  int busyTime[cookCount];
-  pthread_mutex_t busyTimeMutex[cookCount];
+  atomic_int busyTime[cookCount];
   for (int i = 0; i<cookCount; i++) {
-    busyTime[i] = 0;
-    pthread_mutex_init(busyTimeMutex[i], NULL);
+    atomic_store(&busyTime[i], 0);
   }
 
   Order* orderTable[maxCustomers];
+  sem_t orderTableMuts[maxCustomers];
   for (int i = 0; i<maxCustomers; i++) {
     orderTable[i] = NULL;
+    sem_init(&orderTableMuts[i], 0, 1);
   }
 
   //Argument arrays (client done later in repeating section)

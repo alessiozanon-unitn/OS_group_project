@@ -7,31 +7,74 @@
 #include <unistd.h>
 #include <math.h>
 #include <semaphore.h>
+#include <stdatomic.h>
 
 const int OVERWORK_THRESHOLD = 3;
 extern Menu menu;
 extern int score;
 extern sem_t scoreMutex;
 
-bool cookDish(Dish* dish, Kitchen* Kitchen, int* busyTimePosition) {
+bool cookDish(Dish* dish, Kitchen* kitchen, atomic_int* busyTimePosition) {
   //grab semaphore resources and do the deed
   //Increase dirty counter and insert new 1s in the array
   //Return true if cooking happened, false otherwise
 }
 
-bool cookDishDirty(Dish* dish, Kitchen* Kithcen, int* busyTimePosition) {
+bool cookDishDirty(Dish* dish, Kitchen* kitchen, atomic_int* busyTimePosition) {
   //attempt cleanCook, return true if that worked
+  if(cookDish(dish, kitchen, busyTimePosition)) return true;
+
   //On failure of that, cook using the least dirty resources, update evreything accordingly
+  
   //Subtract score based on resources used
+  
   //Return true if cooking happened, false otherwise
 }
 
-void cleanResource(Kitchen* kitchen, int* busyTimePosition) {
+void cleanResource(Kitchen* kitchen, atomic_int* busyTimePosition) {
   //Iterate over all resources
   //Find the ones with the least clean units
   //Among them, find the one with the least dirty units
   //Clean the resource
   //If sink is busy, just return without waiting
+  
+  //Initialize a default value
+  Resource* toClean = &kitchen->resources[0];
+  int cleanCount;
+  sem_getvalue(&toClean->clean, &cleanCount);
+  int dirtyCount;
+  sem_getvalue(&toClean->dirty, &dirtyCount);
+  
+  //Iterate over all others
+  for(int i = 1; i<kitchen->resourceCount; i++) {
+    Resource* maybeClean = &kitchen->resources[i];
+    int temp1, temp2;
+    sem_getvalue(&maybeClean->clean, &temp1);
+    sem_getvalue(&maybeClean->dirty, &temp2);
+    if (
+      temp2 != 0 && ( //Candidate resource has something to clean
+        dirtyCount == 0 || ( //Current defualt-ish resource has nothing to clean  
+          temp1<cleanCount || ( //The candidate resource has less clean units
+            temp1==cleanCount && temp2<dirtyCount //Candidate resource tie-breaks with dirty units
+          )
+        )
+      )
+    ) {
+      toClean = maybeClean;
+      cleanCount = temp1;
+      dirtyCount = temp2;
+    }
+  }
+
+  //Try to acquire sink, if it is busy then there's no point
+  int retval = sem_trywait(&kitchen->sink);
+  if (retval != -1) {
+    //Try to clean, without blocking (in case the defualt value has no dirty, I.E. there's no dirty at all)
+    retval = sem_trywait(&toClean->dirty);
+    if (retval != -1){
+      //TODO do the cleaning
+    }
+  }
 }
 
 void addBusyTime(int expectedBusy, int* busyTimePosition, pthread_mutex_t* busyTimeMutex) {
@@ -89,7 +132,7 @@ void* cook(void* arg) {
   Kitchen* kitchen = initData->kitchen;
   int rxOrders = initData->rxOrders;
   int* txDishes = initData->txDishes;
-  int* busyTime = initData->busyTime;
+  atomic_int* busyTime = initData->busyTime;
 
   free(initData);
   

@@ -4,13 +4,14 @@
 #include "kitchen.h"
 #include "order.h"
 #include <stdint.h>
+#include <stdatomic.h>
 
 typedef struct CookArg {
   uint64_t seed[4];
   Kitchen* kitchen;
   int rxOrders;
   int* txDishes; //Array of size #Waiter
-  int* busyTime; //Position on the busyTime array
+  atomic_int* busyTime; //Position on the busyTime array
 } CookArg;
 
 /*
@@ -25,7 +26,7 @@ typedef struct WaiterArg {
   int cookCount; //#Cook
   int* txOrders; //Array of size #Cook
   int rxDishes;
-  int* busyTime; //Full array, for reading only
+  atomic_int* busyTime; //Full array, for reading only
   int customerCount; //#Max_Customers
   Order** orderTable; //Full array, can see where orders are assigned;
   int* txServing; //Array of size #Max_Customers
