@@ -67,6 +67,7 @@ int main(){
   int ordersPipes[cookCount][2];
   int dishesPipes[waiterCount][2];
   int servingPipes[maxCustomers][2];
+  int arrivalPipe[2];
 
   //Initializing pipes
   for (int i = 0; i<cookCount; i++) {
@@ -91,6 +92,10 @@ int main(){
     } else {
       fcntl(servingPipes[i][0], F_SETFL, O_NONBLOCK);
     }
+  }
+
+  if (pipe(arrivalPipe) < 0) {
+    //Pipe error
   }
 
   //sender arrays
@@ -126,7 +131,7 @@ int main(){
   //Argument arrays (client done later in repeating section)
   CookArg* cookArgs[cookCount];
   WaiterArg* waiterArgs[waiterCount];
-
+  
   for (int i = 0; i<cookCount; i++) {
     cookArgs[i] = malloc(sizeof(CookArg*));
     cookArgs[i]->seed[0] = next_splitmix64();
@@ -151,6 +156,7 @@ int main(){
     waiterArgs[i]->rxDishes = dishesPipes[i][0];
     waiterArgs[i]->busyTime = busyTime;
     waiterArgs[i]->customerCount = maxCustomers;
+    waiterArgs[i]->rxArrival = arrivalPipe[0];
     waiterArgs[i]->orderTable = orderTable;
     waiterArgs[i]->txServing = servingSenders;
   }
@@ -175,7 +181,7 @@ int main(){
     //Update status brief TODO
   }
 
-  //Wait for all clients to be satisfied
+  //Wait for all clients to leave 
 
   //Close cooks
 

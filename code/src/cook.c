@@ -350,12 +350,15 @@ void* cook(void* arg) {
   Queue queue = (Queue){.queueSize = 0, .dishIndexes = NULL, .waiterIDs = NULL};
 
   while (runFlag) {
-    int receivedOrder[2] = {0, 0};
-    int readStatus = read(rxOrders, &receivedOrder, sizeof(receivedOrder));//TODO make sure this works
+    int readStatus;
+    do {
+      int receivedOrder[2] = {0, 0};
+      readStatus = read(rxOrders, &receivedOrder, sizeof(receivedOrder));//TODO make sure this works
     
-    if (readStatus != -1) {
-      addTask(&queue, receivedOrder[0], receivedOrder[1], busyTime);
-    }
+      if (readStatus != -1) {
+        addTask(&queue, receivedOrder[0], receivedOrder[1], busyTime);
+      }
+    } while (readStatus != -1); //Get all waiting orders in pipe
     
     //Decision making starts
     bool foundTask = false;

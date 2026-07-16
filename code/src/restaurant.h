@@ -28,6 +28,7 @@ typedef struct WaiterArg {
   int rxDishes;
   atomic_int* busyTime; //Full array, for reading only
   int customerCount; //#Max_Customers
+  int rxArrival;
   Order** orderTable; //Full array, can see where orders are assigned;
   int* txServing; //Array of size #Max_Customers
 } WaiterArg;
@@ -35,7 +36,7 @@ typedef struct WaiterArg {
 /*
   Waiter does their decisions, reading the order (contains cleint's patience and arrival time) and  busyTime array.
   Having chosen a cook for a dish (or more), sends their ID and the dish's index value in the correct rxOrders.
-  Waiter entatains as the can, checking their rxOrders and updating the patience on the orderTable.
+  Waiter entatains as they can, checking their rxOrders and updating the patience on the orderTable.
   Waiter recieves the completed dish ID, uses it to serve the custormer indexed in the same place as the order the dish is from into rxServing array.
   Waiter should always listen on rxArrival unless he has ceil(#Max_Customers/#Waiters) customers already.
  */
@@ -44,6 +45,8 @@ typedef struct CustomerArg {
   uint64_t seed[4];
   Order* orderSlot; //Position in orderTable for their order
   int rxServing;
+  int tableNumber; //Index of the orderslot, pseudo ID;
+  int txArrival;
 } CustomerArg;
 
 /*
