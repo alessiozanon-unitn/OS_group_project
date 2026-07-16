@@ -143,7 +143,7 @@ void* waiter(void* arg) {
     if (newCount != 0) {
       for (int i = 0; i<newCount; i++) {
         sem_wait(&orderTableMuts[newClients[i]]); //Must make sure no one is messing with the order memory (like freeing) while reading
-        arrivalTimeMatcher = (orderTable[newClients[i]] != NULL)? orderTable[newClients[i]]->arrivalTime : 0; 
+        arrivalTimeMatcher[newClients[i]] = (orderTable[newClients[i]] != NULL)? orderTable[newClients[i]]->arrivalTime : 0; 
       }
       
       //Prioritize the customers with the lowest patience level (by sorting the array)
