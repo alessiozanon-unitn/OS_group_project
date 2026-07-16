@@ -14,9 +14,9 @@
 #include "splitmix64.h"
 #include "utils.h"
 
-extern Menu* menu;
-int score;
-sem_t scoreMutex;
+Menu* menu;
+atomic_int score;
+uint gameSpeed;
 
 int main(){
 
@@ -26,7 +26,7 @@ int main(){
   const uint maxCustomers = atoi(getenv("MAX_CUSTOMERS"));
   const uint totalCustomers = atoi(getenv("TOTAL_CUSTOMERS"));
   const uint randomSeed = atoi(getenv("RANDOM_SEED"));
-  const uint gameSpeed = atoi(getenv("GAME_SPEED"));
+  gameSpeed = atoi(getenv("GAME_SPEED"));
   const char* menu_file = getenv("MENU_FILE");
   const char* resources_file = getenv("RESOURCES_FILE");
 
