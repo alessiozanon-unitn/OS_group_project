@@ -121,7 +121,7 @@ int main(){
     atomic_store(&busyTime[i], 0);
   }
 
-  atomic_OrderP* orderTable[maxCustomers];
+  atomic_Order* orderTable[maxCustomers];
   for (int i = 0; i<maxCustomers; i++) {
     atomic_store(&orderTable[i], NULL);
   }
