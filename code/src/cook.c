@@ -294,7 +294,7 @@ typedef struct Queue {
   int* waiterIDs;
 } Queue;
 
-void addTask(Queue* queue, int dish, int waiter, atomic_int* busyTimePosition) {
+void addTask(Queue* queue, int dish, int waiter) {
   if (queue == NULL) return;
 
   if (queue->queueSize == 0) {
@@ -355,7 +355,7 @@ void* cook(void* arg) {
       readStatus = read(rxOrders, &receivedOrder, sizeof(receivedOrder));//TODO make sure this works
     
       if (readStatus != -1) {
-        addTask(&queue, receivedOrder[0], receivedOrder[1], busyTime);
+        addTask(&queue, receivedOrder[0], receivedOrder[1]);
       }
     } while (readStatus != -1); //Get all waiting orders in pipe
     

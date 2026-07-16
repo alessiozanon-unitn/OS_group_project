@@ -2,6 +2,8 @@
 #include "menu.h"
 #include "restaurant.h"
 
+#include "xoshiro256plusplus.h"
+
 #include <stdlib.h>
 #include <unistd.h>
 #include <math.h>
@@ -11,6 +13,14 @@
 extern Menu menu;
 extern atomic_int score;
 extern double gameSpeed;
+
+const int ESUCCESSWEIGHT = 3;   //>=0, the entratainment adds some value
+const int EFAILWEIGHT = 16;      //>=0, the entratainment does nothing
+const int ECRITFAILWEIGHT = 1;  //>=0, the entratainment subtracts some value
+const int MINSUCCESS = 30;       //How much a success will contribute at least (patience-minutes)
+const int MAXSUCCESS = 60;       //How much a success can contribute at most (patience-minutes)
+const int MINCFAIL = 15;         //How much a critical fail can detract at least (positive)
+const int MAXCFAIL = 60;         //How much a critical fail can detract at most (positive)
 
 void waiterSleep(int sleepTime) {
   if (gameSpeed >= 1) {//Speed is faster than real-time, reduce usleep number
@@ -36,6 +46,44 @@ int compDishes(const void* x, const void* y) {
   return b->price - a->price; //More expensive plates have priority
 }
 
+typedef struct dishReceipt {
+  int size;
+  int* clientIndexes;
+} dishReceipt;
+
+void addReceipt(dishReceipt* queue, int dish) {
+  if (queue == NULL) return;
+
+  if (queue->size == 0) {
+    queue->clientIndexes = malloc(sizeof(int));
+  } else if ((queue->size & (queue->size -1)) == 0) { //Test if size is a power of two, if so then expand array 
+    queue->clientIndexes = realloc(queue->clientIndexes, sizeof(int)*2*queue->size);
+  }
+  queue->clientIndexes[queue->size] = dish;
+  queue->size++; //size acts as the index of the first free slot
+}
+
+void rmReceipt(dishReceipt* queue, int index) {
+  if (queue == NULL) return;
+  
+  if (index < 0) return; //Not valid index
+  if (queue->size <= index) return; //Not valid index
+  queue->size--; //size is now the index of the last valid value
+  if (queue->size == 0) {
+    free(queue->clientIndexes);
+    queue->clientIndexes = NULL;
+    return;
+  }
+  
+  for (int i = index; i<queue->size; i++) { //Move all the elements after index left
+    queue->clientIndexes[i] = queue->clientIndexes[i+1];
+  }
+
+  if ((queue->size & (queue->size-1)) == 0) { //If size is a power of two, half of the array is empty 
+    queue->clientIndexes = realloc(queue->clientIndexes, sizeof(int)*queue->size);
+  }
+}
+
 void* waiter(void* arg) {
   
   WaiterArg* args = (WaiterArg*) arg;
@@ -53,6 +101,10 @@ void* waiter(void* arg) {
 
   free(arg);
   bool runFlag = true;
+  dishReceipt receipts[menu.dishCount]; //Keep track of what ordered for who
+  for (int i = 0; i<menu.dishCount; i++) {
+    receipts[i] = (dishReceipt){.size = 0, .clientIndexes = NULL}; //Init the fields
+  }
   
   while (runFlag); {
     //Grab a new customer if available
@@ -91,15 +143,55 @@ void* waiter(void* arg) {
               currentVal = leastVal;
             }
           }
+          
+          //TODO decide on how to interact with the patience level in the decision
           int sendOrder[2] = {dishMap[i], ID}; //Create the dish package
+          addReceipt(&receipts[dishMap[i]], newClient); //Add the client to the receipts of the dish
           atomic_fetch_add(&busyTime[leastBusyCook], dishes[i]->time); //Increment the amount of time the cook is going to be busy
           write(txOrders[leastBusyCook], &sendOrder, sizeof(sendOrder)); //Send it
         }
       }
     }
+
     //Distribute dishes received
-
-
-    //Entratain guests
+    int dishIndex = 0;
+    while (read(rxDishes, &dishIndex, sizeof(dishIndex)) != -1) {
+      //Waiter has a plate, do something with it
+    }
+    if (ESUCCESSWEIGHT+ECRITFAILWEIGHT <= 0) { //If no chance of something happening, nothing to do here
+      //Find a client to entratain
+      int grumpiestCustomer = -1;
+      int patience = -1;
+      for (int i = 0; i<customerCount; i++) {
+        if (orderTable[i] != NULL) {
+          sem_wait(&orderTableMuts[i]);
+          int currentPatience = -1;
+          if (orderTable[i] != NULL) currentPatience = atomic_load(&orderTable[i]->patienceLevel);
+          sem_post(&orderTableMuts[i]);
+          if (currentPatience != -1 && (grumpiestCustomer == -1 || currentPatience < patience)) { //If you got a valid read, and no customer was fund or the previous find is better-off than this one 
+            grumpiestCustomer = i;
+            patience = currentPatience;
+          }
+        }
+      }
+    
+      //Entratain guests
+      if (grumpiestCustomer != -1) {//Someone was found
+        sem_wait(&orderTableMuts[grumpiestCustomer]); //Make sure the customer doesn't pull the carpet under the waiter
+        if (orderTable[grumpiestCustomer] != NULL) { //And the client is even still there
+          int roll = next(seed)%(ESUCCESSWEIGHT+EFAILWEIGHT+ECRITFAILWEIGHT); //Roll is in the bounds of all chances
+          if (roll < ECRITFAILWEIGHT) { //Rolled bad enough to get a critical fail
+            //Detract score
+            int roll = next(seed)%(MAXCFAIL - MINCFAIL)+MINCFAIL;
+            atomic_fetch_sub(&orderTable[grumpiestCustomer], roll);
+          } else if (roll >= ECRITFAILWEIGHT+EFAILWEIGHT) {//Rolled good enough to get a success
+            //Increase score
+            int roll = next(seed)%(MAXSUCCESS - MINSUCCESS)+MINSUCCESS;
+            atomic_fetch_add(&orderTable[grumpiestCustomer], roll);
+          } //Otherwise nothing happens
+        }
+        sem_post(&orderTableMuts[grumpiestCustomer]); //Client is no longer hostage
+      }
+    }
   }
 }
