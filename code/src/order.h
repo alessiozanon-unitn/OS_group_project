@@ -13,7 +13,7 @@ typedef struct OrderNode {
 typedef struct Order {
   atomic_int patienceLevel; // Current patience level updated both by the customer and waiter
   time_t arrivalTime;
-  atomic_int count; // number of dishes
+  int count; // number of dishes
   OrderNode* dishList; //Dynamic Array
 } Order;
 #endif
