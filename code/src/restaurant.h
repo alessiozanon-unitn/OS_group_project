@@ -30,7 +30,7 @@ typedef struct WaiterArg {
   int customerCount; //#Max_Customers
   int rxArrival;
   Order** orderTable; //Full array, can see where orders are assigned;
-  sem_t* orderTableMuts; 
+  sem_t* orderTableMuts;
   int* txServing; //Array of size #Max_Customers
 } WaiterArg;
 
@@ -45,6 +45,7 @@ typedef struct WaiterArg {
 typedef struct CustomerArg {
   uint64_t seed[4];
   Order* orderSlot; //Position in orderTable for their order
+  sem_t* slotMut;
   int rxServing;
   int tableNumber; //Index of the orderslot, pseudo ID;
   int txArrival;
