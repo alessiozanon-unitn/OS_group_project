@@ -121,11 +121,9 @@ int main(){
     atomic_store(&busyTime[i], 0);
   }
 
-  Order* orderTable[maxCustomers];
-  sem_t orderTableMuts[maxCustomers];
+  atomic_OrderP* orderTable[maxCustomers];
   for (int i = 0; i<maxCustomers; i++) {
-    orderTable[i] = NULL;
-    sem_init(&orderTableMuts[i], 0, 1);
+    atomic_store(&orderTable[i], NULL);
   }
 
   //Argument arrays (client done later in repeating section)

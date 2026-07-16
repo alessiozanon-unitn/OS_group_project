@@ -40,5 +40,17 @@ void* waiter(void* arg) {
 
   bool clientTaken[customerCount];  
   bool runFlag = true;
+  
+  while (runFlag); {
+    //Grab a new customer if available
+    int newClient = -1;
+    if (read(rxArrival, &newClient, sizeof(newClient) =! -1) {
+      clientTaken[newClient] = true;
+    }
 
+    //Deprecate clients that left
+    for (int i = 0; i<customerCount; i++) {
+      clientTaken[i] = clientTaken[i] && orderTable[i] != NULL;
+    }
+  }
 }
