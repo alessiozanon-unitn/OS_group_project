@@ -15,16 +15,22 @@ extern atomic_int score;
 extern double gameSpeed;
 
 void cookSleep(int expectedBusy, atomic_int* busyTimePosition) {
-  double waitInMicro = 1000000.0f * 60.0f * (double)expectedBusy / gameSpeed;
-  int fullSleeps = lround(waitInMicro/(1000000.0f - 1.0f));
-  int lastSleep = lround(waitInMicro)%(1000000- 1);
-  for (int i = 0; i<fullSleeps; i++) {
-    usleep(1000000 -1);
-    atomic_fetch_sub(busyTimePosition, 1);
+  if (gameSpeed >= 1) {//Speed is faster than real-time, reduce usleep number
+    for (int i = 0; i<expectedBusy; i++) {
+      for (int ii = 0; ii<60; ii++) {
+        usleep(lround((1000000-1)/gameSpeed)); //Sleep for an in-game minute
+      }
+      atomic_fetch_sub(&busyTimePosition, 1);
+    }
+  } else {//Speed is slower than real-time, sleep more times per game minute 
+    double realSleepTime = 1000000.0f * 60.0f / gameSpeed;
+    for (int i = 0; i<expectedBusy; i++) {
+      for (int ii = lround(realSleepTime); ii>0; ii - (1000000 -1)) { //Sleep all the time off in an in-game second
+        usleep(ii%(1000000-1));
+      }
+      atomic_fetch_sub(&busyTimePosition, 1);
+    }
   }
-  usleep(lastSleep);
-  int retval = atomic_fetch_sub(busyTimePosition, 1);
-  if (retval < 0) atomic_store(busyTimePosition, 0);
 }
 
 bool cookDish(Dish* dish, Kitchen* kitchen, atomic_int* busyTimePosition) {
@@ -135,7 +141,6 @@ bool cookDishDirty(Dish* dish, Kitchen* kitchen, atomic_int* busyTimePosition) {
         acc += pow(2, (double)dirtyTracker[i][ii]) * log2((double)(1+ kitchen->resources[dish->requiredTypes[i]].clean_time)); 
       }
     }
-
     atomic_fetch_sub(&score, round(acc));
 
     //Free the dirty resources and re-add them to the tracking array
@@ -224,11 +229,6 @@ bool cookDishDirty(Dish* dish, Kitchen* kitchen, atomic_int* busyTimePosition) {
     }
     return false;
   }
-
-
-  //Subtract score based on resources used
-  
-  //Return true if cooking happened, false otherwise
 }
 
 void cleanResource(Kitchen* kitchen, atomic_int* busyTimePosition) {
@@ -307,7 +307,6 @@ void addTask(Queue* queue, int dish, int waiter, atomic_int* busyTimePosition) {
   queue->dishIndexes[queue->queueSize] = dish;
   queue->waiterIDs[queue->queueSize] = waiter;
   queue->queueSize++; //queueSize acts as the index of the first free slot
-  atomic_fetch_add(&(menu.dishes[dish].time), busyTimePosition); //Add time to prepare to expected busy time 
 }
 
 void rmTask(Queue* queue, int index) {

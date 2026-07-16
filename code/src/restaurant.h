@@ -6,8 +6,6 @@
 #include <stdint.h>
 #include <stdatomic.h>
 
-typedef _Atomic(Order*) atomic_Order;
-
 typedef struct CookArg {
   uint64_t seed[4];
   Kitchen* kitchen;
@@ -31,7 +29,8 @@ typedef struct WaiterArg {
   atomic_int* busyTime; //Full array, for reading only
   int customerCount; //#Max_Customers
   int rxArrival;
-  atomic_Order** orderTable; //Full array, can see where orders are assigned;
+  Order** orderTable; //Full array, can see where orders are assigned;
+  sem_t* orderTableMuts; 
   int* txServing; //Array of size #Max_Customers
 } WaiterArg;
 
@@ -45,7 +44,7 @@ typedef struct WaiterArg {
 
 typedef struct CustomerArg {
   uint64_t seed[4];
-  atomic_Order* orderSlot; //Position in orderTable for their order
+  Order* orderSlot; //Position in orderTable for their order
   int rxServing;
   int tableNumber; //Index of the orderslot, pseudo ID;
   int txArrival;
