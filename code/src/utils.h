@@ -2,6 +2,8 @@
 #define UTILS
 
 #include "kitchen.h"
-void print_kitchen(Kitchen *kitchen);
+#include "menu.h"
 
+void print_kitchen(Kitchen *kitchen);
+void print_menu(Menu *menu);
 #endif

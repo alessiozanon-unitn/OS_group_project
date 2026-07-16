@@ -44,8 +44,13 @@ int main(){
   // Loads resources to kitchen from file
   load_resources_from(resources_file, kitchen);
 
+  // Loads menu from the csv
+  load_menu_from(menu_file, kitchen);
+
   // For debugging
   //print_kitchen(kitchen);
+  // print_menu(menu);
+
 
 
   //PID holders

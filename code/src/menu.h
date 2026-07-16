@@ -3,7 +3,7 @@
 
 #include "kitchen.h"
 
-int load_menu_from(char *file_path);
+int load_menu_from(const char *file_path, Kitchen *kitchen);
 
 typedef struct Dish {
   char* name;

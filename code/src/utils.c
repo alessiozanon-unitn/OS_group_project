@@ -3,6 +3,15 @@
 #include <stdio.h>
 #include "utils.h"
 
+void print_menu(Menu *menu){
+  for(int i=0;i<menu->dishCount;i++){
+    printf("Name: %s - Price: %d - Time: %d, RequiredSize: %d\nTypes: ", menu->dishes[i].name, menu->dishes[i].price, menu->dishes[i].time, menu->dishes[i].requiredSize);
+    for(int j=0;j<menu->dishes[i].requiredSize;j++){
+      printf("(Type: %d) * %d - ", menu->dishes[i].requiredTypes[j], menu->dishes[i].requiredCount[j]);
+    }
+    printf("\n");
+  }
+}
 void print_kitchen(Kitchen *kitchen){
   printf("Resource count: %d\n", kitchen->resourceCount);
   int sink;
