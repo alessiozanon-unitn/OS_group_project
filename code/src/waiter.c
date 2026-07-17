@@ -24,8 +24,7 @@ const int MINCFAIL = 15;         //How much a critical fail can detract at least
 const int MAXCFAIL = 60;         //How much a critical fail can detract at most (positive)
 
 Order** orderTable; //Must be global because qsort_r is a feature test macro, thus not as portable as required
-time_t* arrivalTimeMatcher; //Used to make sure the client hasn't left and been replaced
-//TODO every time i'd check if a client is NULL, use a dedicated function to also see if they are the same
+atomic_time** arrivalTimeMatcher; //Used to make sure the client hasn't left and been replaced
 
 void waiterSleep(int sleepTime) {
   if (gameSpeed >= 1) {//Speed is faster than real-time, reduce usleep number
@@ -44,10 +43,6 @@ void waiterSleep(int sleepTime) {
   }
 }
 
-bool verifyCustomer (int index) {
-  return !(orderTable[index] == NULL || orderTable[index]->arrivalTime != arrivalTimeMatcher[index]);
-}
-
 int compDishes(const void* x, const void* y) {
   Dish* a = (Dish*)x;
   Dish* b = (Dish*)y;
@@ -59,9 +54,9 @@ int compClients(const void* x, const void*y) {
   int a = *(int*)x;
   int b = *(int*)y;
 
-  if (orderTable[a] == NULL && orderTable[b] == NULL) return 0; //If both are null, doesn't matter 
-  if (orderTable[a] == NULL) return -1; //If client "a" left, client "b" has better priority
-  if (orderTable[b] == NULL) return 1; //Effectively, I shunt leavers to the right of the array
+  if ((orderTable[a] == NULL || orderTable[a]->arrivalTime == atomic_load(arrivalTimeMatcher[a])) && (orderTable[b] == NULL || orderTable[b]->arrivalTime == atomic_load(arrivalTimeMatcher[b]))) return 0; //If both are null, doesn't matter 
+  if (orderTable[a] == NULL || orderTable[a]->arrivalTime == atomic_load(arrivalTimeMatcher[a])) return -1; //If client "a" left, client "b" has better priority
+  if (orderTable[b] == NULL || orderTable[b]->arrivalTime == atomic_load(arrivalTimeMatcher[b])) return 1; //Effectively, I shunt leavers and duplicates to the right of the array
   
   //Both are here, no-problem comparison
   a = atomic_load(&orderTable[*(int*)x]->patienceLevel);
@@ -120,6 +115,7 @@ void* waiter(void* arg) {
   int rxArrival = args->rxArrival;
   orderTable = args->orderTable; //Global
   sem_t* orderTableMuts = args->orderTableMuts;
+  atomic_time** threadArrivalTimeMatcher = args->arrivalTimeMatcher;
   int* txServing = args->txServing;
 
   free(arg);
@@ -127,6 +123,11 @@ void* waiter(void* arg) {
   dishReceipt receipts[menu.dishCount]; //Keep track of what ordered for who
   for (int i = 0; i<menu.dishCount; i++) {
     receipts[i] = (dishReceipt){.size = 0, .clientIndexes = NULL}; //Init the fields
+  }
+  time_t localArrivalMatcher[customerCount];
+  for (int i = 0; i<customerCount; i++) {
+    arrivalTimeMatcher[i] = threadArrivalTimeMatcher[i];
+    localArrivalMatcher[i] = 0;
   }
   
   while (runFlag) {
@@ -137,13 +138,9 @@ void* waiter(void* arg) {
       newCount++;
     }
     
-    //TODO ensure that all clients in the queue can be picked only by one thread, and that there is
-    //some safeguard against a client leaving while being picked up and thein being immediately replaced.
-
     if (newCount != 0) {
       for (int i = 0; i<newCount; i++) {
         sem_wait(&orderTableMuts[newClients[i]]); //Must make sure no one is messing with the order memory (like freeing) while reading
-        arrivalTimeMatcher[newClients[i]] = (orderTable[newClients[i]] != NULL)? orderTable[newClients[i]]->arrivalTime : 0; 
       }
       
       //Prioritize the customers with the lowest patience level (by sorting the array)
@@ -151,12 +148,14 @@ void* waiter(void* arg) {
 
       int offset = 0;
       for (int i = 0; i<newCount; i++) { //Count the clients that left in the queue
-        if (orderTable[i] == NULL) offset++;
+        if (orderTable[newClients[i]] == NULL || orderTable[i]->arrivalTime == atomic_load(arrivalTimeMatcher[newClients[i]])) offset++; //If the arrival time matches the last recorded, it means that a duplicate snuck through and it's discardable
       }
 
       newCount -= offset; //Shorten the array "size" by that amount, since the leavers had been shoved right
 
       for (int i = 0; i<newCount; i++) {
+        atomic_store(arrivalTimeMatcher[newClients[i]], orderTable[newClients[i]]->arrivalTime); //The new arrivals are accepted and their time stored
+        localArrivalMatcher[newClients[i]] = orderTable[newClients[i]]->arrivalTime; //Local array is updated too
         sem_post(&orderTableMuts[newClients[i]]); //Temporarily free the customers
       }
 
@@ -165,7 +164,7 @@ void* waiter(void* arg) {
         newClient = newClients[clientScroller]; //Do them in order of the sorted array
         
         sem_wait(&orderTableMuts[newClient]); //Re-lock currently used customer
-        if (orderTable[newClient] != NULL) { //Do nothing if the client left in the short break of freedom
+        if (orderTable[newClient] != NULL && localArrivalMatcher[newClient] == orderTable[newClient]->arrivalTime) { //Do nothing if the client left in the short break of freedom (use local copy so of the client was replaced by another waiter this fails)
           //Get all dishes in order to convert into indexes
           int dishesCount = orderTable[newClient]->count;
           Dish* dishes[dishesCount];
@@ -215,14 +214,8 @@ void* waiter(void* arg) {
         rmReceipt(&receipts[dishIndex], 0); //Remove receipt, either delivered or deprecated
         
         sem_wait(&orderTableMuts[currentCustomer]); //Lock the order for operations
-        if (orderTable[currentCustomer] != NULL) { //If the client hasn't left
-          bool found = false;
-          for (int i = 0; !found && i<orderTable[currentCustomer]->count; i++) { //Search the order
-            if (!orderTable[currentCustomer]->dishList[i].satisfied && orderTable[currentCustomer]->dishList[i].dish->name == menu.dishes[dishIndex].name) {//Find an unsatisfied dish matching the one prepared
-              found = true; //Flip shortcut bool
-              orderTable[currentCustomer]->dishList[i].satisfied = true; //Flip satisfied bool
-            }
-          }
+        if (orderTable[currentCustomer] != NULL && localArrivalMatcher[currentCustomer] == orderTable[currentCustomer]->arrivalTime) { //If the client hasn't left (use local array again)
+          write(txServing[currentCustomer], &dishIndex, sizeof(dishIndex));
           //Dish is now delivered;
         }
         sem_post(&orderTableMuts[currentCustomer]); //Nothing else to do on the orderTable for now
@@ -236,22 +229,20 @@ void* waiter(void* arg) {
       int grumpiestCustomer = -1;
       int patience = -1;
       for (int i = 0; i<customerCount; i++) {
-        if (orderTable[i] != NULL) {
-          sem_wait(&orderTableMuts[i]);
-          int currentPatience = -1;
-          if (orderTable[i] != NULL) currentPatience = atomic_load(&orderTable[i]->patienceLevel);
-          sem_post(&orderTableMuts[i]);
-          if (currentPatience != -1 && (grumpiestCustomer == -1 || currentPatience < patience)) { //If you got a valid read, and no customer was fund or the previous find is better-off than this one 
-            grumpiestCustomer = i;
-            patience = currentPatience;
-          }
+        sem_wait(&orderTableMuts[i]);
+        int currentPatience = -1;
+        if (orderTable[i] != NULL) currentPatience = atomic_load(&orderTable[i]->patienceLevel);
+        sem_post(&orderTableMuts[i]);
+        if (currentPatience != -1 && (grumpiestCustomer == -1 || currentPatience < patience)) { //If you got a valid read, and no customer was found or the previous find is better-off than this one 
+          grumpiestCustomer = i;
+          patience = currentPatience;
         }
       }
-    
+
       //Entratain guests
       if (grumpiestCustomer != -1) {//Someone was found
         sem_wait(&orderTableMuts[grumpiestCustomer]); //Make sure the customer doesn't pull the carpet under the waiter
-        if (orderTable[grumpiestCustomer] != NULL) { //And the client is even still there
+        if (orderTable[grumpiestCustomer] != NULL && orderTable[grumpiestCustomer]->arrivalTime == atomic_load(arrivalTimeMatcher[grumpiestCustomer])) { //And the client is even still there
           int roll = next(seed)%(ESUCCESSWEIGHT+EFAILWEIGHT+ECRITFAILWEIGHT); //Roll is in the bounds of all chances
           if (roll < ECRITFAILWEIGHT) { //Rolled bad enough to get a critical fail
             //Detract score

@@ -123,9 +123,12 @@ int main(){
 
   Order* orderTable[maxCustomers];
   sem_t orderTableMuts[maxCustomers];
+  atomic_time* arrivalTimeMatcher[maxCustomers];
   for (int i = 0; i<maxCustomers; i++) {
     atomic_store(&orderTable[i], NULL);
     sem_init(&orderTableMuts[i], 0, 1);
+    arrivalTimeMatcher[i] = malloc(sizeof(atomic_time));
+    atomic_store(arrivalTimeMatcher[i], 0);
   }
 
   //Argument arrays (client done later in repeating section)
@@ -159,6 +162,7 @@ int main(){
     waiterArgs[i]->rxArrival = arrivalPipe[0];
     waiterArgs[i]->orderTable = orderTable;
     waiterArgs[i]->orderTableMuts = orderTableMuts;
+    waiterArgs[i]->arrivalTimeMatcher = arrivalTimeMatcher;
     waiterArgs[i]->txServing = servingSenders;
   }
 

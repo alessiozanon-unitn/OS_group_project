@@ -5,6 +5,9 @@
 #include "order.h"
 #include <stdint.h>
 #include <stdatomic.h>
+#include <time.h>
+
+typedef _Atomic(time_t) atomic_time;
 
 typedef struct CookArg {
   uint64_t seed[4];
@@ -31,6 +34,7 @@ typedef struct WaiterArg {
   int rxArrival;
   Order** orderTable; //Full array, can see where orders are assigned;
   sem_t* orderTableMuts;
+  atomic_time**arrivalTimeMatcher;
   int* txServing; //Array of size #Max_Customers
 } WaiterArg;
 
