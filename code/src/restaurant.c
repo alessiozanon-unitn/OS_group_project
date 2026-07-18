@@ -6,6 +6,8 @@
 #include "menu.h"
 #include "order.h"
 #include <semaphore.h>
+#include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -173,15 +175,19 @@ int main(){
 
   //Start cooks
   for (int i = 0; i<cookCount; i++) {
-    returnCooks[i] = pthread_create(&Cooks[i], NULL, cook, (void*) cookArgs[i]);
+    if(pthread_create(&Cooks[i], NULL, cook, (void*) cookArgs[i]) != 0){
+      fprintf(stderr, "Could not create cook n.%d's thread", i);
+    }
   }
 
   //Start waiters
   for (int i = 0; i<waiterCount; i++) {
-    returnWaiters[i] = pthread_create(&Waiters[i], NULL, waiter, (void*) waiterArgs[i]);
+    if(pthread_create(&Waiters[i], NULL, waiter, (void*) waiterArgs[i]) != 0){
+      fprintf(stderr, "Could not create waiter n.%d's thread", i);
+    }
   }
 
-  // Customer
+  // Customers
 
   int customersSent = 0;
 
@@ -215,11 +221,26 @@ int main(){
     //Update status brief TODO
   }
 
-  //Wait for all clients to leave
+  //Wait for all clients to leave and joins them
+  for(int i=0;i<maxCustomers;i++){
+    void *return_value;
+    pthread_join(Customers[i], &return_value);
+    returnCustomers[i] = (int)(intptr_t) return_value;
+  }
 
-  //Close cooks
+  //Joins cooks
+  for(int i=0;i<cookCount;i++){
+    void *return_value;
+    pthread_join(Cooks[i], &return_value);
+    returnCooks[i] = (int)(intptr_t) return_value;
+  }
 
-  //Close waiters
+  //Joins waiters
+  for(int i=0;i<waiterCount;i++){
+    void *return_value;
+    pthread_join(Waiters[i], &return_value);
+    returnWaiters[i] = (int)(intptr_t) return_value;
+  }
 
 
   return 0;
