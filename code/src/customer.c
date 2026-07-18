@@ -1,5 +1,3 @@
-#include <cerrno>
-#include <cstdlib>
 #include <semaphore.h>
 #include <stdint.h>
 #include <stdlib.h>
