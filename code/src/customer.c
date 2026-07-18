@@ -1,12 +1,17 @@
+#include <cerrno>
+#include <cstdlib>
 #include <semaphore.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <sys/types.h>
+#include <unistd.h>
 #include "menu.h"
 #include "order.h"
 #include "restaurant.h"
 #include "customer.h"
 #include "xoshiro256plusplus.h"
-
+#include <stdbool.h>
+#include <errno.h>
 extern Menu* menu;
 
 void* customer (void* arg) {
@@ -22,6 +27,8 @@ void* customer (void* arg) {
   int rxServing = (int) args->rxServing;
   int tableNumber = (int) args->tableNumber;
   int txArrival = (int) args->txArrival;
+  int max_dishes_per_order = (int) args->max_dishes_per_order;
+  int patience_level_range = (int) args->patience_level_range;
 
   // xoshiro's generator thread-local state loaded from the main thread
   uint64_t s[4];
@@ -31,7 +38,7 @@ void* customer (void* arg) {
   s[3] = args->seed[3];
 
   // Generate random dish dynamic array
-  int length = (next(s) % 10) + 1; // Maximum dishes per order capped at 10, might want to change that (NEW ENV)
+  int length = (next(s) % max_dishes_per_order) + 1;
 
   OrderNode *dishList = malloc(sizeof(OrderNode)*length);
 
@@ -48,7 +55,7 @@ void* customer (void* arg) {
 
   // Generates random order
   Order order;
-  order.patienceLevel = patienceFloor + (next(s) % 30); // 30 is a placeholder, will make an env var out of that
+  order.patienceLevel = patienceFloor + (next(s) % patience_level_range);
   order.arrivalTime = time(NULL);
   order.count = length;
   order.dishList = dishList;
@@ -60,8 +67,55 @@ void* customer (void* arg) {
 
   sem_post(slotMut);
 
+  // Sends its id (index over the orderTable) over the pipe to a receiving waiter
+  write(txArrival, &tableNumber, sizeof(int));
+
+  // Customer loop
+  bool exit = false;
+  while(!exit){
+
+    //Checks for incoming dishes
+    void *in_dish;
+    ssize_t r = read(rxServing, in_dish, sizeof(int));
+
+    if(r > 0){
+      int in_dish = (int) in_dish;
+      for(int i=0;i<orderSlot->count;i++){
+        // Compares each dish in the customer order with the menu dish indexed by the number taken from the waiter
+        if (orderSlot->dishList[i].dish == &menu->dishes[in_dish] && orderSlot->dishList[i].satisfied == false){
+          orderSlot->dishList[i].satisfied = true;
+        }
+      }
+    }else if(r == -1 && errno == EAGAIN){ // Nothing available yet (I guess nothing happens here)
+
+    }else if (r == 0){ // Pipe is closed (We won't close it I think)
+
+    }else{ // Error
+      return (void*) -1; // There is a better way
+    }
+
+    // Decrements patience
+    orderSlot->patienceLevel--;
+
+    // If patience is 0 exits
+    if(orderSlot->patienceLevel <= 0){
+      exit = true;
+    }
+
+    //If all dishes are satisfied exits
+    for(int i=0;i<orderSlot->count;i++){
+      if(!orderSlot->dishList[i].satisfied){
+        break;
+      }else{
+        exit = true;
+      }
+    }
+  }
 
 
+  // Changes global score
+
+  // Exits
   orderSlot = NULL;
   free(dishList);
 
