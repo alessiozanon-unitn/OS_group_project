@@ -1,0 +1,14 @@
+#ifndef ERRORCODES
+#define ERRORCODES
+
+typedef enum {
+  ALL_OK, 
+  INVALID_DISH, 
+  INVALID_RESOURCE, 
+  INVALID_PARAMETER, 
+  FILE_NOT_FOUND, 
+  SEMAPHORE_FAIL, 
+  MALLOC_FAIL, 
+  WRITE_FAIL
+} ErrorVals;
+#endif
