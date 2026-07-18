@@ -15,7 +15,7 @@
 #include "splitmix64.h"
 #include "utils.h"
 
-Menu* menu;
+extern Menu* menu;
 atomic_int score;
 uint gameSpeed;
 

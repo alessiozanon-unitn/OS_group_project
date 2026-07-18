@@ -1,5 +1,5 @@
 build: obj/restaurant.o obj/cook.o obj/customer.o obj/waiter.o obj/menu.o obj/kitchen.o obj/splitmix64.o obj/xoshiro256plusplus.o obj/utils.o
-	gcc -o restaurant obj/restaurant.o obj/cook.o obj/customer.o obj/waiter.o obj/menu.o obj/kitchen.o obj/splitmix64.o obj/xoshiro256plusplus.o obj/utils.o
+	gcc -o restaurant obj/restaurant.o obj/cook.o obj/customer.o obj/waiter.o obj/menu.o obj/kitchen.o obj/splitmix64.o obj/xoshiro256plusplus.o obj/utils.o -lm
 
 clean:
 	rm -f ./obj/*.o #Remove object files
