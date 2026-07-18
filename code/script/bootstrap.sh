@@ -49,6 +49,16 @@ for arg in "$@"; do
             random_seed="${arg#*=}"
             ;;
     esac
+    case "$arg" in
+        --max-dishes-per-order=*)
+            max_dishes_per_order="${arg#*=}"
+            ;;
+    esac
+    case "$arg" in
+        --patience-level-range=*)
+            patience_level_range="${arg#*=}"
+            ;;
+    esac
 done
 
 
@@ -64,7 +74,7 @@ if [ ! -r "$file" ]; then
     exit 1
 fi
 
-var_names_numeric=("NUM_COOKS" "NUM_WAITERS" "MAX_CUSTOMERS" "TOTAL_CUSTOMERS" "GAME_SPEED" "RANDOM_SEED")
+var_names_numeric=("NUM_COOKS" "NUM_WAITERS" "MAX_CUSTOMERS" "TOTAL_CUSTOMERS" "GAME_SPEED" "RANDOM_SEED" "MAX_DISHES_PER_ORDER" "PATIENCE_LEVEL_RANGE")
 var_names_strings=("MENU_FILE" "RESOURCES_FILE")
 
 # Checks that all variables are present
@@ -176,6 +186,20 @@ if [[ -v random_seed ]]; then
         declare "RANDOM_SEED=$random_seed"
     else
         echo "Custom random_seed not a valid number, ignoring it"
+    fi
+fi
+if [[ -v max_dishes_per_order ]]; then
+    if [[ "$max_dishes_per_order" =~ ^[0-9]+$ ]]; then
+        declare "RANDOM_SEED=$max_dishes_per_order"
+    else
+        echo "Custom max_dishes_per_order not a valid number, ignoring it"
+    fi
+fi
+if [[ -v patience_level_range ]]; then
+    if [[ "$patience_level_range" =~ ^[0-9]+$ ]]; then
+        declare "PATIENCE_LEVEL_RANGE=$patience_level_range"
+    else
+        echo "Custom patience_level_range not a valid number, ignoring it"
     fi
 fi
 

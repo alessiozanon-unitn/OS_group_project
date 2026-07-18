@@ -64,4 +64,7 @@ void* customer (void* arg) {
 
   orderSlot = NULL;
   free(dishList);
+
+  // Frees CustomerArgs
+  free(args);
 }

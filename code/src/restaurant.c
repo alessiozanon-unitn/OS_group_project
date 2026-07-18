@@ -7,6 +7,7 @@
 #include "order.h"
 #include <semaphore.h>
 #include <stdlib.h>
+#include <sys/types.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <pthread.h>
@@ -26,9 +27,11 @@ int main(){
   const uint maxCustomers = atoi(getenv("MAX_CUSTOMERS"));
   const uint totalCustomers = atoi(getenv("TOTAL_CUSTOMERS"));
   const uint randomSeed = atoi(getenv("RANDOM_SEED"));
-  gameSpeed = atoi(getenv("GAME_SPEED"));
+  const u_long gameSpeed = atoi(getenv("GAME_SPEED"));
   const char* menu_file = getenv("MENU_FILE");
   const char* resources_file = getenv("RESOURCES_FILE");
+  const int max_dishes_per_order = atoi(getenv("MAX_DISHES_PER_ORDER"));
+  const int patience_level_range = atoi(getenv("PATIENCE_LEVEL_RANGE"));
 
   // Splitmix state variable is initialized through the env variable randomSeed
   // and then used to initialize the state of the threads' states to use with xoshiro's generator
@@ -125,7 +128,7 @@ int main(){
   sem_t orderTableMuts[maxCustomers];
   atomic_time* arrivalTimeMatcher[maxCustomers];
   for (int i = 0; i<maxCustomers; i++) {
-    atomic_store(&orderTable[i], NULL);
+    orderTable[i] = NULL;
     sem_init(&orderTableMuts[i], 0, 1);
     arrivalTimeMatcher[i] = malloc(sizeof(atomic_time));
     atomic_store(arrivalTimeMatcher[i], 0);
@@ -134,7 +137,7 @@ int main(){
   //Argument arrays (client done later in repeating section)
   CookArg* cookArgs[cookCount];
   WaiterArg* waiterArgs[waiterCount];
-  
+
   for (int i = 0; i<cookCount; i++) {
     cookArgs[i] = malloc(sizeof(CookArg*));
     cookArgs[i]->seed[0] = next_splitmix64();
@@ -166,8 +169,7 @@ int main(){
     waiterArgs[i]->txServing = servingSenders;
   }
 
-  //Utility variables
-  int customersSent = 0;
+
 
   //Start cooks
   for (int i = 0; i<cookCount; i++) {
@@ -179,14 +181,41 @@ int main(){
     returnWaiters[i] = pthread_create(&Waiters[i], NULL, waiter, (void*) waiterArgs[i]);
   }
 
-  //Clients loop
+  // Customer
+
+  int customersSent = 0;
+
+  // Customers loop
   while (customersSent < totalCustomers) {
-    //Check if client slots are free TODO
+
+    // Check if there is any free slot and in case spawns a new customer
+    for(int i=0;i<maxCustomers;i++){
+      if (orderTable[i] == NULL){
+
+        // Sets new customer args
+        CustomerArg *customerArgs = malloc(sizeof(CustomerArg)); // Are freed by the customer using it
+        customerArgs->seed[0] = next_splitmix64();
+        customerArgs->seed[1] = next_splitmix64();
+        customerArgs->seed[2] = next_splitmix64();
+        customerArgs->seed[3] = next_splitmix64();
+        customerArgs->orderSlot = orderTable[i];
+        sem_init(customerArgs->slotMut, 0, 1);
+        customerArgs->rxServing = servingPipes[i][0];
+        customerArgs->tableNumber = i;
+        customerArgs->txArrival = arrivalPipe[1];
+        customerArgs->max_dishes_per_order = max_dishes_per_order;
+        customerArgs->patience_level_range = patience_level_range;
+
+        // Spawns new customer
+        returnCustomers[i] = pthread_create(&Customers[i], NULL, &customer, (void*) customerArgs);
+        customersSent++;
+      }
+    }
     //Check if signals received TODO
     //Update status brief TODO
   }
 
-  //Wait for all clients to leave 
+  //Wait for all clients to leave
 
   //Close cooks
 

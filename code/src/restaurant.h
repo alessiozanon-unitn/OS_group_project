@@ -53,6 +53,10 @@ typedef struct CustomerArg {
   int rxServing;
   int tableNumber; //Index of the orderslot, pseudo ID;
   int txArrival;
+
+  // .env
+  int max_dishes_per_order;
+  int patience_level_range;
 } CustomerArg;
 
 /*
