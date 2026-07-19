@@ -1,3 +1,4 @@
+#include <pthread.h>
 #include <semaphore.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -10,6 +11,8 @@
 #include "xoshiro256plusplus.h"
 #include <stdbool.h>
 #include <errno.h>
+#include <time.h>
+
 extern Menu* menu;
 
 void* customer (void* arg) {
@@ -61,7 +64,7 @@ void* customer (void* arg) {
   // Sets order in the orderTable
   sem_wait(slotMut);
 
-  orderSlot = &order;
+  *orderSlot = order;
 
   sem_post(slotMut);
 
@@ -69,21 +72,36 @@ void* customer (void* arg) {
   write(txArrival, &tableNumber, sizeof(int));
 
   // Customer loop
-  bool exit = false;
-  while(!exit){
+  while(true){
+
+    // If (patience is 0) OR (all dishes are satisfied) exits
+    sem_wait(slotMut);
+    bool all_satisfied = true;
+    bool out_of_patience = orderSlot->patienceLevel <= 0;
+
+    for(int i=0;i<orderSlot->count;i++){
+      if(!orderSlot->dishList[i].satisfied)
+        all_satisfied = false;
+    }
+    sem_post(slotMut);
+
+    if(all_satisfied || out_of_patience)
+      break;
+
 
     //Checks for incoming dishes
-    void *in_dish;
-    ssize_t r = read(rxServing, in_dish, sizeof(int));
+    int in_dish;
+    ssize_t r = read(rxServing, &in_dish, sizeof(int));
 
     if(r > 0){
-      int in_dish = (int) in_dish;
+      sem_wait(slotMut);
       for(int i=0;i<orderSlot->count;i++){
         // Compares each dish in the customer order with the menu dish indexed by the number taken from the waiter
         if (orderSlot->dishList[i].dish == &menu->dishes[in_dish] && orderSlot->dishList[i].satisfied == false){
           orderSlot->dishList[i].satisfied = true;
         }
       }
+      sem_post(slotMut);
     }else if(r == -1 && errno == EAGAIN){ // Nothing available yet (I guess nothing happens here)
 
     }else if (r == 0){ // Pipe is closed (We won't close it I think)
@@ -93,21 +111,12 @@ void* customer (void* arg) {
     }
 
     // Decrements patience
+    sem_wait(slotMut);
     orderSlot->patienceLevel--;
+    sem_post(slotMut);
 
-    // If patience is 0 exits
-    if(orderSlot->patienceLevel <= 0){
-      exit = true;
-    }
-
-    //If all dishes are satisfied exits
-    for(int i=0;i<orderSlot->count;i++){
-      if(!orderSlot->dishList[i].satisfied){
-        break;
-      }else{
-        exit = true;
-      }
-    }
+    //Increments waitedTime
+    waitedTime++;
   }
 
 
@@ -119,4 +128,6 @@ void* customer (void* arg) {
 
   // Frees CustomerArgs
   free(args);
+
+  pthread_exit(0);
 }
