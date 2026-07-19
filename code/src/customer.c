@@ -1,3 +1,4 @@
+#include <math.h>
 #include <pthread.h>
 #include <semaphore.h>
 #include <stdint.h>
@@ -11,13 +12,20 @@
 #include "xoshiro256plusplus.h"
 #include <stdbool.h>
 #include <errno.h>
+#include "utils.h"
 #include <time.h>
 
 extern Menu* menu;
+extern atomic_int score;
+extern double gameSpeed;
 
 void* customer (void* arg) {
   int patienceFloor = 0;
-  int waitedTime = 0; // Cyclicly updated by the customer
+
+  // Score variables
+  int total_price = 0;
+  int time_to_serve = 0; // Cyclicly updated by the customer (waiting time)
+  int number_of_dishes_served = 0;
 
 
   //Loads args
@@ -47,7 +55,7 @@ void* customer (void* arg) {
     int dishIndex = next(s) % menu->dishCount;
     dishList[i].dish = &menu->dishes[dishIndex];
     dishList[i].satisfied = false;
-
+    total_price += menu->dishes[dishIndex].price;
     // Adds dish time to patience floor
     patienceFloor += menu->dishes[dishIndex].time;
   }
@@ -72,11 +80,12 @@ void* customer (void* arg) {
   write(txArrival, &tableNumber, sizeof(int));
 
   // Customer loop
+  bool all_satisfied;
   while(true){
+    all_satisfied = true;
 
     // If (patience is 0) OR (all dishes are satisfied) exits
     sem_wait(slotMut);
-    bool all_satisfied = true;
     bool out_of_patience = orderSlot->patienceLevel <= 0;
 
     for(int i=0;i<orderSlot->count;i++){
@@ -99,6 +108,7 @@ void* customer (void* arg) {
         // Compares each dish in the customer order with the menu dish indexed by the number taken from the waiter
         if (orderSlot->dishList[i].dish == &menu->dishes[in_dish] && orderSlot->dishList[i].satisfied == false){
           orderSlot->dishList[i].satisfied = true;
+          number_of_dishes_served++;
         }
       }
       sem_post(slotMut);
@@ -115,12 +125,21 @@ void* customer (void* arg) {
     orderSlot->patienceLevel--;
     sem_post(slotMut);
 
-    //Increments waitedTime
-    waitedTime++;
+    // Increments waited time
+    time_to_serve++;
+
+    custom_sleep();
   }
 
 
   // Changes global score
+  sem_wait(slotMut);
+  if(all_satisfied){ // If every order was satisfied
+    score += total_price * (1.0 - ((double) time_to_serve/orderSlot->patienceLevel));
+  }else{ // If patience ran out
+    score -= total_price * log2(1 + ((double) orderSlot->patienceLevel / (1 + number_of_dishes_served)));
+  }
+  sem_post(slotMut);
 
   // Exits
   orderSlot = NULL;

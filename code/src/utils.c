@@ -1,7 +1,19 @@
 #include "kitchen.h"
+#include <math.h>
 #include <semaphore.h>
 #include <stdio.h>
+#include <unistd.h>
 #include "utils.h"
+
+extern double gameSpeed;
+
+void custom_sleep(){
+  long cycles = lround(600.0 / gameSpeed);
+
+  for(long i=0;i<cycles;i++){
+    usleep(100000);
+  }
+}
 
 void print_menu(Menu *menu){
   for(int i=0;i<menu->dishCount;i++){

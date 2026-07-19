@@ -19,7 +19,7 @@
 
 extern Menu* menu;
 atomic_int score;
-uint gameSpeed;
+double gameSpeed;
 
 int main(){
 
@@ -29,7 +29,7 @@ int main(){
   const uint maxCustomers = atoi(getenv("MAX_CUSTOMERS"));
   const uint totalCustomers = atoi(getenv("TOTAL_CUSTOMERS"));
   const uint randomSeed = atoi(getenv("RANDOM_SEED"));
-  const u_long gameSpeed = atoi(getenv("GAME_SPEED"));
+  gameSpeed = atoi(getenv("GAME_SPEED"));
   const char* menu_file = getenv("MENU_FILE");
   const char* resources_file = getenv("RESOURCES_FILE");
   const int max_dishes_per_order = atoi(getenv("MAX_DISHES_PER_ORDER"));
