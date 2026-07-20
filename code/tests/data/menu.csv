@@ -1,0 +1,4 @@
+name,price,time,requirements
+dish1, 1, 10, resource1;resource2;resource3
+dish2, 2, 20, resource1:10;resource2;resource3:1
+dish3, 3, 30, resource1

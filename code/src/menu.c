@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-Menu *menu;
+extern Menu *menu;
 
 int load_menu_from(const char *file_path, Kitchen *kitchen){
   FILE *menu_file = fopen(file_path, "r");

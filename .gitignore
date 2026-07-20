@@ -36,8 +36,9 @@
 *.x86_64
 *.hex
 
-# Actual executable
+# Actual executables
 code/restaurant
+code/test
 
 # Debug files
 *.dSYM/
