@@ -291,14 +291,18 @@ int main(){
     return THREAD_FAIL;
   }
   pthread_sigmask(SIG_UNBLOCK, &usr1, NULL);
+  
+  int currentActives[maxCustomers];
+  for (int i = 0; i<maxCustomers; i++) {
+    currentActives[i] = -1; //No customer here value
+  }
 
   // Customers loop
   while (customersSent < totalCustomers) {
-    
-    // Check if there is any free slot and in case spawns a new customer
-    for(int i=0;i<maxCustomers;i++){
-      if (orderTable[i] == NULL){
-
+    int deployedCustomers = 0;
+    //Check over all slots, making sure to stop if all customers to send have been
+    for(int i = 0; i<maxCustomers && customersSent < totalCustomers; i++) {
+      if(currentActives[i] != -1 || atomic_load(customerStatuses[currentActives[i]]) != WAITING) { //If the slot is empty or the non-empty slot has a customer who is satisfied, unsatisfied, or erroed out, can be replaced
         // Sets new customer args
         CustomerArg* customerArgs = malloc(sizeof(CustomerArg)); // Are freed by the customer using it
         if (customerArgs == NULL) {
@@ -317,7 +321,7 @@ int main(){
         customerArgs->txArrival = arrivalPipe[1];
         customerArgs->max_dishes_per_order = max_dishes_per_order;
         customerArgs->patience_level_range = patience_level_range;
-        
+      
         //Temporarily block SIGUSR1
         pthread_sigmask(SIG_BLOCK, &usr1, NULL);
         // Spawns new customer
@@ -325,12 +329,16 @@ int main(){
           perror("Could not create customer thread");
           return THREAD_FAIL;
         }
-        customersSent++;
         pthread_sigmask(SIG_UNBLOCK, &usr1, NULL);
+        
+        currentActives[i] = customersSent;
+        customersSent++;
       }
-
+      if (currentActives[i] != -1) deployedCustomers++; //Count the current customers in the restaurant
     }
-    //Update status brief TODO
+
+    custom_sleep();
+    printf("Score:\t%d\nCustomer progress:\t%d\t%f\%\n", atomic_load(&score), deployedCustomers, deployedCustomers/totalCustomers);
   }
 
   //Wait for all clients to leave and joins them

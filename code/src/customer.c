@@ -193,17 +193,18 @@ void* customer (void* arg) {
 
   if(all_satisfied){ // If every order was satisfied
     atomic_fetch_add(&score, lround(total_price * (1.0 - ((double) time_to_serve/(double)orderSlot->patienceLevel))));
-    atomic_store(status, SATISFIED);
   }else{ // If patience ran out
     atomic_fetch_add(&score, lround(total_price * log2(1 + ((double) orderSlot->patienceLevel / (1 + number_of_dishes_served)))));
-    atomic_store(status, SATISFIED);
   }
 
   // Exits
   orderSlot = NULL;
   free(dishList);
-
+  
   sem_post(slotMut);
+  
+  if (all_satisfied) atomic_store(status, SATISFIED);
+  else atomic_store(status, UNSATISFIED);
 
   pthread_exit(ALL_OK);
 }
