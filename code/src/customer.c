@@ -83,7 +83,7 @@ void* customer (void* arg) {
   // Generates random order
   Order order;
   order.patienceLevel = patienceFloor + (next(s) % patience_level_range);
-  order.arrivalTime = time(NULL);
+  atomic_store(&order.arrivalTime, time(NULL));
   order.count = length;
   order.dishList = dishList;
 
@@ -135,9 +135,8 @@ void* customer (void* arg) {
     ssize_t r; 
     do {
       r = read(rxServing, &in_dish, sizeof(int));
-      if (r == -1 && !(errno == EINTR || errno == EAGAIN)) customerStop(READ_FAIL);
-      else if (r == -1 && errno == EAGAIN) r = 0; //Nothing to do,  nor anything wrong with it
-    } while (r < 0);
+      if (r == -1 && !(errno != EAGAIN || errno != EINTR)) customerStop(READ_FAIL);
+    } while (r != 0 && errno != EAGAIN); //If the pipe is empty move on
 
     if(r > 0){
       int semret = 0;
@@ -170,7 +169,7 @@ void* customer (void* arg) {
     // Increments waited time
     time_to_serve++;
 
-    custom_sleep(); //TODO
+    custom_sleep();
   }
 
 
@@ -181,9 +180,9 @@ void* customer (void* arg) {
   } while (semret != 0);
 
   if(all_satisfied){ // If every order was satisfied
-    score += total_price * (1.0 - ((double) time_to_serve/(double)orderSlot->patienceLevel));
+    atomic_fetch_add(&score, lround(total_price * (1.0 - ((double) time_to_serve/(double)orderSlot->patienceLevel))));
   }else{ // If patience ran out
-    score -= total_price * log2(1 + ((double) orderSlot->patienceLevel / (1 + number_of_dishes_served)));
+    atomic_fetch_add(&score, lround(total_price * log2(1 + ((double) orderSlot->patienceLevel / (1 + number_of_dishes_served)))));
   }
 
   // Exits
@@ -195,5 +194,5 @@ void* customer (void* arg) {
   // Frees CustomerArgs
   free(args);
 
-  pthread_exit(0);
+  pthread_exit(ALL_OK);
 }

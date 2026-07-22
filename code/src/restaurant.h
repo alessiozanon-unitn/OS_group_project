@@ -33,7 +33,7 @@ typedef struct WaiterArg {
   int customerCount; //#Max_Customers
   int rxArrival;
   Order** orderTable; //Full array, can see where orders are assigned;
-  sem_t* orderTableMuts;
+  sem_t** orderTableMuts;
   atomic_time**arrivalTimeMatcher;
   int* txServing; //Array of size #Max_Customers
 } WaiterArg;

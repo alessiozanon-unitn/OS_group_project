@@ -123,7 +123,7 @@ void* waiter(void* arg) {
   int customerCount = args->customerCount;
   int rxArrival = args->rxArrival;
   orderTable = args->orderTable; //Global
-  sem_t* orderTableMuts = args->orderTableMuts;
+  sem_t** orderTableMuts = args->orderTableMuts;
   atomic_time** threadArrivalTimeMatcher = args->arrivalTimeMatcher;
   int* txServing = args->txServing;
 
@@ -143,15 +143,20 @@ void* waiter(void* arg) {
     //Grab new customers if available
     int newClients[customerCount];
     int newCount = 0;
-    while (read(rxArrival, &newClients[newCount], sizeof(int)) != -1) {
-      newCount++;
-    }
+
+    int readret = 0;
+    do {
+      readret = read(rxArrival, &newClients[newCount], sizeof(int));
+      if (readret == -1 && !(errno == EAGAIN || errno == EINTR)) waiterStop(READ_FAIL);
+      if (readret == -1 && errno == EINTR) readret = 0; 
+      if (readret > 0) newCount++;
+    } while (readret != 1);
     
     if (newCount != 0) {
       for (int i = 0; i<newCount; i++) {
         int semret = 0;
         do {
-          semret = sem_wait(&orderTableMuts[newClients[i]]); //Must make sure no one is messing with the order memory (like freeing) while reading
+          semret = sem_wait(orderTableMuts[newClients[i]]); //Must make sure no one is messing with the order memory (like freeing) while reading
           if (semret == -1 && errno != EINTR) waiterStop(SEMAPHORE_FAIL);
         } while (semret != 0);
       }
@@ -169,7 +174,7 @@ void* waiter(void* arg) {
       for (int i = 0; i<newCount; i++) {
         atomic_store(arrivalTimeMatcher[newClients[i]], orderTable[newClients[i]]->arrivalTime); //The new arrivals are accepted and their time stored
         localArrivalMatcher[newClients[i]] = orderTable[newClients[i]]->arrivalTime; //Local array is updated too
-        sem_post(&orderTableMuts[newClients[i]]); //Temporarily free the customers
+        sem_post(orderTableMuts[newClients[i]]); //Temporarily free the customers
       }
 
       int newClient; //A single of the new clients
@@ -177,7 +182,7 @@ void* waiter(void* arg) {
         newClient = newClients[clientScroller]; //Do them in order of the sorted array
         int semret = 0;
         do {
-          semret = sem_wait(&orderTableMuts[newClient]); //Re-lock currently used customer
+          semret = sem_wait(orderTableMuts[newClient]); //Re-lock currently used customer
           if (semret == -1 && errno != EINTR) waiterStop(SEMAPHORE_FAIL);
         } while (semret != 0);
         
@@ -188,7 +193,7 @@ void* waiter(void* arg) {
           for (int i = 0; i<dishesCount; i++) {
             dishes[i] = orderTable[newClient]->dishList[i].dish;
           }
-          sem_post(&orderTableMuts[newClient]);
+          sem_post(orderTableMuts[newClient]);
           
           //Get an order of assignment by sorting over price
           qsort(dishes, dishesCount, sizeof(Dish*), compDishes);
@@ -230,31 +235,37 @@ void* waiter(void* arg) {
 
     //Distribute dishes received
     int dishIndex = 0;
-    while (read(rxDishes, &dishIndex, sizeof(dishIndex)) != -1) {
-      //Waiter has a plate, do something with it
-      bool deliveredFlag = false;
-      while (!deliveredFlag && receipts[dishIndex].size > 0) {//Try to deliver a dish as long as there's someone to accept it
-        int currentCustomer = receipts[dishIndex].clientIndexes[0]; //Leftmost client is the oldest one
-        rmReceipt(&receipts[dishIndex], 0); //Remove receipt, either delivered or deprecated
+    readret = 0;
+    do {
+      readret = read(rxDishes, &dishIndex, sizeof(dishIndex));
+      if (readret == -1 && !(errno == EINTR || errno == EAGAIN)) waiterStop(WRITE_FAIL);
+      if (readret == -1 && errno == EAGAIN) readret = 0;
+      if (readret > 0) {
+        //Waiter has a plate, do something with it
+        bool deliveredFlag = false;
+        while (!deliveredFlag && receipts[dishIndex].size > 0) {//Try to deliver a dish as long as there's someone to accept it
+          int currentCustomer = receipts[dishIndex].clientIndexes[0]; //Leftmost client is the oldest one
+          rmReceipt(&receipts[dishIndex], 0); //Remove receipt, either delivered or deprecated
         
-        int semret = 0;
-        do {
-          semret = sem_wait(&orderTableMuts[currentCustomer]); //Lock the order for operations
-          if (semret == -1 && errno != EINTR) waiterStop(SEMAPHORE_FAIL);
-        } while (semret != 0);
-
-        if (orderTable[currentCustomer] != NULL && localArrivalMatcher[currentCustomer] == orderTable[currentCustomer]->arrivalTime) { //If the client hasn't left (use local array again)
-          int writeret = 0;
+          int semret = 0;
           do {
-            writeret = write(txServing[currentCustomer], &dishIndex, sizeof(dishIndex));
-            if (writeret == -1 && errno != EINTR) waiterStop(WRITE_FAIL);
-          } while (writeret != 0);
+            semret = sem_wait(orderTableMuts[currentCustomer]); //Lock the order for operations
+            if (semret == -1 && errno != EINTR) waiterStop(SEMAPHORE_FAIL);
+          } while (semret != 0);
 
-            //Dish is now delivered;
+          if (orderTable[currentCustomer] != NULL && localArrivalMatcher[currentCustomer] == orderTable[currentCustomer]->arrivalTime) { //If the client hasn't left (use local array again)
+            int writeret = 0;
+            do {
+              writeret = write(txServing[currentCustomer], &dishIndex, sizeof(dishIndex));
+              if (writeret == -1 && errno != EINTR) waiterStop(WRITE_FAIL);
+            } while (writeret != 0);
+  
+              //Dish is now delivered;
+          }
+          sem_post(orderTableMuts[currentCustomer]); //Nothing else to do on the orderTable for now
         }
-        sem_post(&orderTableMuts[currentCustomer]); //Nothing else to do on the orderTable for now
       }
-    }
+    } while (readret != -1);
 
 
     //Entratainment 
@@ -265,13 +276,13 @@ void* waiter(void* arg) {
       for (int i = 0; i<customerCount; i++) {
         int semret = 0;
         do {
-          semret = sem_wait(&orderTableMuts[i]);
+          semret = sem_wait(orderTableMuts[i]);
           if (semret == -1 && errno != EINTR) waiterStop(SEMAPHORE_FAIL);
         } while (semret != 0);
 
         int currentPatience = -1;
         if (orderTable[i] != NULL) currentPatience = atomic_load(&orderTable[i]->patienceLevel);
-        sem_post(&orderTableMuts[i]);
+        sem_post(orderTableMuts[i]);
         if (currentPatience != -1 && (grumpiestCustomer == -1 || currentPatience < patience)) { //If you got a valid read, and no customer was found or the previous find is better-off than this one 
           grumpiestCustomer = i;
           patience = currentPatience;
@@ -282,7 +293,7 @@ void* waiter(void* arg) {
       if (grumpiestCustomer != -1) {//Someone was found
         int semret = 0;
         do {
-          semret = sem_wait(&orderTableMuts[grumpiestCustomer]); //Make sure the customer doesn't pull the carpet under the waiter
+          semret = sem_wait(orderTableMuts[grumpiestCustomer]); //Make sure the customer doesn't pull the carpet under the waiter
           if (semret == -1 && errno != EINTR) waiterStop(SEMAPHORE_FAIL);
         } while (semret != 0);
 
@@ -298,7 +309,7 @@ void* waiter(void* arg) {
             atomic_fetch_add(&orderTable[grumpiestCustomer], roll);
           } //Otherwise nothing happens
         }
-        sem_post(&orderTableMuts[grumpiestCustomer]); //Client is no longer hostage
+        sem_post(orderTableMuts[grumpiestCustomer]); //Client is no longer hostage
       }
     }
   }

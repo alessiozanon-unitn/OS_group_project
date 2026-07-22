@@ -404,10 +404,8 @@ void* cook(void* arg) {
     do {
       int receivedOrder[2] = {0, 0};
       readStatus = read(rxOrders, &receivedOrder, sizeof(receivedOrder));//TODO make sure this works
-    
-      if (readStatus != -1) {
-        addTask(&queue, receivedOrder[0], receivedOrder[1]);
-      }
+      if (readStatus == -1 && !(errno == EAGAIN || errno == EINTR)) cookStop(READ_FAIL); 
+      if (readStatus != -1) addTask(&queue, receivedOrder[0], receivedOrder[1]);
     } while (readStatus != -1); //Get all waiting orders in pipe
     
     //Decision making starts
@@ -479,4 +477,5 @@ void* cook(void* arg) {
       }
     }
   }
+  pthread_exit(ALL_OK);
 }; 
