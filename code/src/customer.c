@@ -23,10 +23,10 @@ extern double gameSpeed;
 
 sem_t* slotMut; //Allows the thread-exiting function to do so cleanly and gracefully
 Order* orderSlot;
-atomic_int* status;
+atomic_int* myStatus;
 
 void customerStop (ErrorVals errornumber) {
-  atomic_store(status, ERROR);
+  atomic_store(myStatus, ERROR);
   perror("Customer runtime error");
   int semret = 0;
   do {
@@ -62,7 +62,7 @@ void* customer (void* arg) {
   int txArrival = (int) args->txArrival;
   int max_dishes_per_order = (int) args->max_dishes_per_order;
   int patience_level_range = (int) args->patience_level_range;
-  status = args->status;
+  myStatus = args->status;
   // xoshiro's generator thread-local state loaded from the main thread
   uint64_t s[4];
   s[0] = args->seed[0];
@@ -115,7 +115,7 @@ void* customer (void* arg) {
   } while (writeret != 0);
 
   //Officially ready to wait 
-  atomic_store(status, WAITING);
+  atomic_store(myStatus, WAITING);
 
   // Customer loop
   bool all_satisfied;
@@ -203,8 +203,8 @@ void* customer (void* arg) {
   
   sem_post(slotMut);
   
-  if (all_satisfied) atomic_store(status, SATISFIED);
-  else atomic_store(status, UNSATISFIED);
+  if (all_satisfied) atomic_store(myStatus, SATISFIED);
+  else atomic_store(myStatus, UNSATISFIED);
 
   pthread_exit(ALL_OK);
 }

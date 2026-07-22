@@ -207,7 +207,11 @@ int main(){
   atomic_time* arrivalTimeMatcher[maxCustomers];
   for (int i = 0; i<maxCustomers; i++) {
     orderTable[i] = NULL;
-    sem_init(orderTableMuts[i], 0, 1);
+    orderTableMuts[i] = malloc(sizeof(sem_t));
+    if (orderTableMuts[i] == NULL) {
+      perror("Could not create mutex array for the order table");
+      return MALLOC_FAIL;
+    } else sem_init(orderTableMuts[i], 0, 1);
     arrivalTimeMatcher[i] = malloc(sizeof(atomic_time));
     if (arrivalTimeMatcher[i] = NULL) {
       perror("Could not create arrival time-match storages");
