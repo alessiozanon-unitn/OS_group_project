@@ -32,14 +32,17 @@ int load_resources_from(const char* file_path, Kitchen *kitchen){
         Resource resource;
         resource.name = strdup(resource_name);
         resource.clean_time = clean_time;
+        resource.dirtyDishesCount = 0;
         sem_init(&resource.clean, 0, quantity);
         sem_init(&resource.dirty, 0, 0);
+        sem_init(&resource.dirtyCountersMutex, 0, 1);
 
         resource.dirtyResourceCounters = malloc(sizeof(int)*quantity);
         for(int i=0; i<quantity; i++){
           resource.dirtyResourceCounters[i] = 0;
         }
 
+        printf("resourceCount: %d\n", kitchen->resourceCount);
         // Added here
         kitchen->resourceCount++;
         kitchen->resources = realloc(kitchen->resources, sizeof(Resource)*kitchen->resourceCount);
