@@ -11,6 +11,7 @@ typedef enum {
   MALLOC_FAIL, 
   WRITE_FAIL,
   READ_FAIL, 
-  THREAD_FAIL
+  THREAD_FAIL,
+  PIPE_FAIL
 } ErrorVals;
 #endif

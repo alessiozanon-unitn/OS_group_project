@@ -114,12 +114,14 @@ void rmReceipt(dishReceipt* queue, int index) {
 void* waiter(void* arg) {
   
   WaiterArg* args = (WaiterArg*) arg;
+
+  atomic_bool* runFlag = args->run;
   uint64_t seed[] = {args->seed[0], args->seed[1], args->seed[2], args->seed[3]};
   int ID = args->ID;
   int cookCount = args->cookCount;
   int* txOrders = args->txOrders;
   int rxDishes = args->rxDishes;
-  atomic_int* busyTime = args->busyTime;
+  atomic_int** busyTime = args->busyTime;
   int customerCount = args->customerCount;
   int rxArrival = args->rxArrival;
   orderTable = args->orderTable; //Global
@@ -128,7 +130,6 @@ void* waiter(void* arg) {
   int* txServing = args->txServing;
 
   free(arg);
-  bool runFlag = true;
   dishReceipt receipts[menu.dishCount]; //Keep track of what ordered for who
   for (int i = 0; i<menu.dishCount; i++) {
     receipts[i] = (dishReceipt){.size = 0, .clientIndexes = NULL}; //Init the fields
@@ -139,7 +140,7 @@ void* waiter(void* arg) {
     localArrivalMatcher[i] = 0;
   }
   
-  while (runFlag) {
+  while (atomic_load(runFlag)) {
     //Grab new customers if available
     int newClients[customerCount];
     int newCount = 0;
@@ -208,10 +209,10 @@ void* waiter(void* arg) {
           }
           for (int i = 0; i<dishesCount; i++) { //Iterate over the sorted mapping
             int leastBusyCook = 0;
-            int leastVal = atomic_load(&busyTime[leastBusyCook]);
+            int leastVal = atomic_load(busyTime[leastBusyCook]);
             int currentVal;
             for (int ii = 1; ii<cookCount; ii++) { //Find the least busy cook
-              currentVal = atomic_load(&busyTime[ii]);
+              currentVal = atomic_load(busyTime[ii]);
               if (currentVal < leastVal) {
                 leastBusyCook = ii;
                 currentVal = leastVal;

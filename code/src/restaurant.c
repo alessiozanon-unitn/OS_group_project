@@ -59,6 +59,8 @@ void status(int signum) {
 
 int main(){
 
+  bool everyThingOK = true;
+
   // Loads env variables
   cookCount = atoi(getenv("NUM_COOKS"));
   const uint waiterCount = atoi(getenv("NUM_WAITERS"));
@@ -75,9 +77,27 @@ int main(){
   // and then used to initialize the state of the threads' states to use with xoshiro's generator
   x_splitmix64 = randomSeed;
 
+  //Prepare the signal handling system
+  struct sigaction act;
+  act.sa_handler = status;
+  
+  sigset_t usr1;
+  sigset_t usr2;
+  
+  sigemptyset(&usr1);
+  sigemptyset(&usr2);
+
+  sigaddset(&usr1, SIGUSR1);
+
+  //Mask incoming user signals while not ready to handle them, so they get queued (exploits the inheritance to also initialize all)
+  pthread_sigmask(SIG_BLOCK, &usr1, NULL);
 
   // Kitchen initalization
   kitchen = malloc(sizeof(Kitchen));
+  if (kitchen == NULL) {
+    fprintf(stderr, "Could not allocate kitchen space");
+    return MALLOC_FAIL;
+  }
   kitchen->resourceCount = 0;
   kitchen->resources = NULL;
   sem_init(&kitchen->sink, 0, 1);
@@ -97,6 +117,25 @@ int main(){
   pthread_t Waiters[waiterCount];
   pthread_t Customers[maxCustomers];
 
+  //Run-status holders
+  atomic_bool* cookRun[cookCount];
+  for (int i = 0; i<cookCount; i++) {
+    cookRun[i] = malloc(sizeof(atomic_bool));
+    if (cookRun[i] == NULL) {
+      fprintf(stderr, "Failed to create cook running status array");
+      return MALLOC_FAIL;
+    } else atomic_store(cookRun[i], true);
+  }
+
+  atomic_bool* waiterRun[waiterCount];
+  for (int i = 0; i<waiterCount; i++) {
+    waiterRun[i] = malloc(sizeof(atomic_bool));
+    if (waiterRun == NULL) {
+      fprintf(stderr, "Failed to create waiter running status array");
+      return MALLOC_FAIL;
+    } else atomic_store(waiterRun[i], true);
+  }
+
   //Pipes
   int ordersPipes[cookCount][2];
   int dishesPipes[waiterCount][2];
@@ -106,7 +145,8 @@ int main(){
   //Initializing pipes
   for (int i = 0; i<cookCount; i++) {
     if (pipe(ordersPipes[i]) < 0) {
-      //Pipe error
+      fprintf(stderr, "Could not create order Pipe n.%d", i);
+      return PIPE_FAIL;
     } else {
       fcntl(ordersPipes[i][0], F_SETFL, O_NONBLOCK);
     }
@@ -114,7 +154,8 @@ int main(){
 
   for (int i = 0; i<waiterCount; i++) {
     if (pipe(dishesPipes[i]) < 0) {
-      //Pipe error
+      fprintf(stderr, "Could not create dish Pipe n.%d", i);
+      return PIPE_FAIL;
     } else {
       fcntl(dishesPipes[i][0], F_SETFL, O_NONBLOCK);
     }
@@ -122,17 +163,19 @@ int main(){
 
   for (int i = 0; i<maxCustomers; i++) {
     if (pipe(servingPipes[i]) < 0) {
-      //Pipe error
+      fprintf(stderr, "Could not create serving Pipe n.%d", i);
+        return PIPE_FAIL;
     } else {
       fcntl(servingPipes[i][0], F_SETFL, O_NONBLOCK);
     }
   }
-
-  fcntl(arrivalPipe[0], F_SETFL, O_NONBLOCK);
-
+  
   if (pipe(arrivalPipe) < 0) {
-    //Pipe error
+    fprintf(stderr, "Could not create arrival Pipe");
+    return PIPE_FAIL;
   }
+  
+  fcntl(arrivalPipe[0], F_SETFL, O_NONBLOCK);
 
   //sender arrays
   int orderSenders[cookCount];
@@ -152,9 +195,12 @@ int main(){
 
 
   //Shared arrays
-  busyTime = calloc(cookCount, sizeof(atomic_int));
   for (int i = 0; i<cookCount; i++) {
-    atomic_store(&busyTime[i], 0);
+    busyTime[i] = malloc(sizeof(atomic_int));
+    if (busyTime[i] == NULL) {
+      fprintf(stderr, "Could not generate busyTime array");
+      return MALLOC_FAIL;
+    } else atomic_store(busyTime[i], 0);
   }
 
   Order* orderTable[maxCustomers];
@@ -164,13 +210,18 @@ int main(){
     orderTable[i] = NULL;
     sem_init(orderTableMuts[i], 0, 1);
     arrivalTimeMatcher[i] = malloc(sizeof(atomic_time));
-    atomic_store(arrivalTimeMatcher[i], 0);
+    if (arrivalTimeMatcher[i] = NULL) {
+      fprintf(stderr, "Could not create arrival time match storage n.%d", i);
+      return MALLOC_FAIL;
+    } else atomic_store(arrivalTimeMatcher[i], 0);
   }
 
-  customerStatuses = calloc(totalCustomers, sizeof(atomic_int));
-  if (customerStatuses == NULL && totalCustomers != 0) return MALLOC_FAIL;
   for (int i = 0; i<totalCustomers; i++) {
-    atomic_store(customerStatuses[i], UNSENT);
+    customerStatuses[i] = malloc(sizeof(atomic_int));
+    if (customerStatuses[i] == NULL) {
+      fprintf(stderr, "Could not create customer status array");
+      return MALLOC_FAIL;
+    } else atomic_store(customerStatuses[i], UNSENT);
   }
 
   //Argument arrays (client done later in repeating section)
@@ -179,6 +230,11 @@ int main(){
 
   for (int i = 0; i<cookCount; i++) {
     cookArgs[i] = malloc(sizeof(CookArg*));
+    if (cookArgs[i] = NULL) {
+      fprintf(stderr, "Failed to allocate cook argument space n.%d", i);
+      return MALLOC_FAIL;
+    }
+    cookArgs[i]->run = cookRun[i];
     cookArgs[i]->seed[0] = next_splitmix64();
     cookArgs[i]->seed[1] = next_splitmix64();
     cookArgs[i]->seed[2] = next_splitmix64();
@@ -191,6 +247,11 @@ int main(){
 
   for (int i = 0; i<waiterCount; i++) {
     waiterArgs[i] = malloc(sizeof(WaiterArg*));
+    if (waiterArgs[i] = NULL) {
+      fprintf(stderr, "Failed to allocate waiter argument space n.%d", i);
+      return MALLOC_FAIL;
+    }
+    waiterArgs[i]->run = waiterRun[i];
     waiterArgs[i]->seed[0] = next_splitmix64();
     waiterArgs[i]->seed[1] = next_splitmix64();
     waiterArgs[i]->seed[2] = next_splitmix64();
@@ -208,12 +269,11 @@ int main(){
     waiterArgs[i]->txServing = servingSenders;
   }
 
-
-
   //Start cooks
   for (int i = 0; i<cookCount; i++) {
     if(pthread_create(&Cooks[i], NULL, cook, (void*) cookArgs[i]) != 0){
       fprintf(stderr, "Could not create cook n.%d's thread", i);
+      return THREAD_FAIL;
     }
   }
 
@@ -221,22 +281,30 @@ int main(){
   for (int i = 0; i<waiterCount; i++) {
     if(pthread_create(&Waiters[i], NULL, waiter, (void*) waiterArgs[i]) != 0){
       fprintf(stderr, "Could not create waiter n.%d's thread", i);
+      return THREAD_FAIL;
     }
   }
 
   // Customers
-
   customersSent = 0;
+  
+  //Attach signal handler and enable SIGUSR1
+  sigaction(SIGUSR1, &act, NULL); 
+  pthread_sigmask(SIG_UNBLOCK, &usr1, NULL);
 
   // Customers loop
   while (customersSent < totalCustomers) {
-
+    
     // Check if there is any free slot and in case spawns a new customer
     for(int i=0;i<maxCustomers;i++){
       if (orderTable[i] == NULL){
 
         // Sets new customer args
-        CustomerArg *customerArgs = malloc(sizeof(CustomerArg)); // Are freed by the customer using it
+        CustomerArg* customerArgs = malloc(sizeof(CustomerArg)); // Are freed by the customer using it
+        if (customerArgs == NULL) {
+          fprintf(stderr, "Could not allocate customer argument space n.%d", customersSent);
+          return MALLOC_FAIL;
+        }
         customerArgs->seed[0] = next_splitmix64();
         customerArgs->seed[1] = next_splitmix64();
         customerArgs->seed[2] = next_splitmix64();
@@ -249,19 +317,25 @@ int main(){
         customerArgs->txArrival = arrivalPipe[1];
         customerArgs->max_dishes_per_order = max_dishes_per_order;
         customerArgs->patience_level_range = patience_level_range;
-
+        
+        //Temporarily block SIGUSR1
+        pthread_sigmask(SIG_BLOCK, &usr1, NULL);
         // Spawns new customer
-        if (pthread_create(&Customers[i], NULL, &customer, (void*) customerArgs) != 0) fprintf(stderr, "Could not create customer n.%d's thread", customersSent);
+        if (pthread_create(&Customers[i], NULL, &customer, (void*) customerArgs) != 0) {
+          fprintf(stderr, "Could not create customer n.%d's thread", customersSent);
+          return THREAD_FAIL;
+        }
         customersSent++;
+        pthread_sigmask(SIG_UNBLOCK, &usr1, NULL);
       }
+
     }
-    //Check if signals received TODO
     //Update status brief TODO
   }
 
   //Wait for all clients to leave and joins them
-  int returnCustomers[maxCustomers];
-  for(int i=0;i<maxCustomers;i++){
+  int returnCustomers[totalCustomers];
+  for(int i=0;i<totalCustomers;i++){
     void *return_value;
     pthread_join(Customers[i], &return_value);
     returnCustomers[i] = (int)(intptr_t) return_value;
@@ -270,6 +344,7 @@ int main(){
   int returnCooks[cookCount];
   //Joins cooks
   for(int i=0;i<cookCount;i++){
+    atomic_store(cookRun[i], false);
     void *return_value;
     pthread_join(Cooks[i], &return_value);
     returnCooks[i] = (int)(intptr_t) return_value;
@@ -278,11 +353,12 @@ int main(){
   int returnWaiters[waiterCount];
   //Joins waiters
   for(int i=0;i<waiterCount;i++){
+    atomic_store(waiterRun[i], false);
     void *return_value;
     pthread_join(Waiters[i], &return_value);
     returnWaiters[i] = (int)(intptr_t) return_value;
   }
 
 
-  return 0;
+  return ALL_OK;
 }

@@ -388,6 +388,7 @@ void rmTask(Queue* queue, int index) {
 void* cook(void* arg) {
   CookArg* initData = (CookArg*) arg;
 
+  atomic_bool* runFlag = initData->run;
   Kitchen* kitchen = initData->kitchen;
   int rxOrders = initData->rxOrders;
   int* txDishes = initData->txDishes;
@@ -395,11 +396,9 @@ void* cook(void* arg) {
 
   free(initData);
   
-  bool runFlag = true;
-  
   Queue queue = (Queue){.queueSize = 0, .dishIndexes = NULL, .waiterIDs = NULL};
 
-  while (runFlag) {
+  while (atomic_load(runFlag)) {
     int readStatus;
     do {
       int receivedOrder[2] = {0, 0};

@@ -10,6 +10,7 @@
 typedef _Atomic(time_t) atomic_time;
 
 typedef struct CookArg {
+  atomic_bool* run;
   uint64_t seed[4];
   Kitchen* kitchen;
   int rxOrders;
@@ -24,6 +25,7 @@ typedef struct CookArg {
 */
 
 typedef struct WaiterArg {
+  atomic_bool* run;
   uint64_t seed[4];
   int ID; //Allows cooks to reply properly
   int cookCount; //#Cook
