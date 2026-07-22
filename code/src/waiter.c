@@ -1,6 +1,7 @@
 #include "waiter.h"
 #include "menu.h"
 #include "restaurant.h"
+#include "errorcodes.h"
 
 #include "xoshiro256plusplus.h"
 
@@ -10,6 +11,7 @@
 #include <semaphore.h>
 #include <stdatomic.h>
 #include <time.h>
+#include <errno.h>
 
 extern Menu menu;
 extern atomic_int score;
@@ -25,6 +27,10 @@ const int MAXCFAIL = 60;         //How much a critical fail can detract at most 
 
 Order** orderTable; //Must be global because qsort_r is a feature test macro, thus not as portable as required
 atomic_time** arrivalTimeMatcher; //Used to make sure the client hasn't left and been replaced
+
+void waiterStop(ErrorVals errornumber) {
+  pthread_exit((void*) errornumber);
+}
 
 void waiterSleep(int sleepTime) {
   if (gameSpeed >= 1) {//Speed is faster than real-time, reduce usleep number
@@ -74,8 +80,10 @@ void addReceipt(dishReceipt* queue, int dish) {
 
   if (queue->size == 0) {
     queue->clientIndexes = malloc(sizeof(int));
+    if (queue->clientIndexes == NULL) waiterStop(MALLOC_FAIL);
   } else if ((queue->size & (queue->size -1)) == 0) { //Test if size is a power of two, if so then expand array 
     queue->clientIndexes = realloc(queue->clientIndexes, sizeof(int)*2*queue->size);
+    if (queue->clientIndexes == NULL && errno == ENOMEM) waiterStop(MALLOC_FAIL);
   }
   queue->clientIndexes[queue->size] = dish;
   queue->size++; //size acts as the index of the first free slot
@@ -99,6 +107,7 @@ void rmReceipt(dishReceipt* queue, int index) {
 
   if ((queue->size & (queue->size-1)) == 0) { //If size is a power of two, half of the array is empty 
     queue->clientIndexes = realloc(queue->clientIndexes, sizeof(int)*queue->size);
+    if (queue->clientIndexes == NULL && errno == ENOMEM) waiterStop(MALLOC_FAIL);
   }
 }
 
@@ -140,7 +149,11 @@ void* waiter(void* arg) {
     
     if (newCount != 0) {
       for (int i = 0; i<newCount; i++) {
-        sem_wait(&orderTableMuts[newClients[i]]); //Must make sure no one is messing with the order memory (like freeing) while reading
+        int semret = 0;
+        do {
+          semret = sem_wait(&orderTableMuts[newClients[i]]); //Must make sure no one is messing with the order memory (like freeing) while reading
+          if (semret == -1 && errno != EINTR) waiterStop(SEMAPHORE_FAIL);
+        } while (semret != 0);
       }
       
       //Prioritize the customers with the lowest patience level (by sorting the array)
@@ -162,8 +175,12 @@ void* waiter(void* arg) {
       int newClient; //A single of the new clients
       for (int clientScroller = 0; clientScroller<newCount; clientScroller++) {
         newClient = newClients[clientScroller]; //Do them in order of the sorted array
+        int semret = 0;
+        do {
+          semret = sem_wait(&orderTableMuts[newClient]); //Re-lock currently used customer
+          if (semret == -1 && errno != EINTR) waiterStop(SEMAPHORE_FAIL);
+        } while (semret != 0);
         
-        sem_wait(&orderTableMuts[newClient]); //Re-lock currently used customer
         if (orderTable[newClient] != NULL && localArrivalMatcher[newClient] == orderTable[newClient]->arrivalTime) { //Do nothing if the client left in the short break of freedom (use local copy so of the client was replaced by another waiter this fails)
           //Get all dishes in order to convert into indexes
           int dishesCount = orderTable[newClient]->count;
@@ -172,11 +189,13 @@ void* waiter(void* arg) {
             dishes[i] = orderTable[newClient]->dishList[i].dish;
           }
           sem_post(&orderTableMuts[newClient]);
+          
           //Get an order of assignment by sorting over price
           qsort(dishes, dishesCount, sizeof(Dish*), compDishes);
 
           //Map dishes to their index
           int dishMap[dishesCount];
+          
           //Iterate on all possible dishes, matching any element in the array to it
           for (int i = 0; i<menu.dishCount; i++) {
             for (int ii = 0; ii<dishesCount; ii++) {
@@ -198,7 +217,12 @@ void* waiter(void* arg) {
             int sendOrder[2] = {dishMap[i], ID}; //Create the dish package
             addReceipt(&receipts[dishMap[i]], newClient); //Add the client to the receipts of the dish
             atomic_fetch_add(&busyTime[leastBusyCook], dishes[i]->time); //Increment the amount of time the cook is going to be busy
-            write(txOrders[leastBusyCook], &sendOrder, sizeof(sendOrder)); //Send it
+            
+            int retwrite = 0;
+            do {
+              retwrite = write(txOrders[leastBusyCook], &sendOrder, sizeof(sendOrder)); //Send it
+              if (retwrite == -1 && errno != EINTR) waiterStop(WRITE_FAIL);
+            } while (retwrite != 0);
           }
         }
       }
@@ -213,10 +237,20 @@ void* waiter(void* arg) {
         int currentCustomer = receipts[dishIndex].clientIndexes[0]; //Leftmost client is the oldest one
         rmReceipt(&receipts[dishIndex], 0); //Remove receipt, either delivered or deprecated
         
-        sem_wait(&orderTableMuts[currentCustomer]); //Lock the order for operations
+        int semret = 0;
+        do {
+          semret = sem_wait(&orderTableMuts[currentCustomer]); //Lock the order for operations
+          if (semret == -1 && errno != EINTR) waiterStop(SEMAPHORE_FAIL);
+        } while (semret != 0);
+
         if (orderTable[currentCustomer] != NULL && localArrivalMatcher[currentCustomer] == orderTable[currentCustomer]->arrivalTime) { //If the client hasn't left (use local array again)
-          write(txServing[currentCustomer], &dishIndex, sizeof(dishIndex));
-          //Dish is now delivered;
+          int writeret = 0;
+          do {
+            writeret = write(txServing[currentCustomer], &dishIndex, sizeof(dishIndex));
+            if (writeret == -1 && errno != EINTR) waiterStop(WRITE_FAIL);
+          } while (writeret != 0);
+
+            //Dish is now delivered;
         }
         sem_post(&orderTableMuts[currentCustomer]); //Nothing else to do on the orderTable for now
       }
@@ -229,7 +263,12 @@ void* waiter(void* arg) {
       int grumpiestCustomer = -1;
       int patience = -1;
       for (int i = 0; i<customerCount; i++) {
-        sem_wait(&orderTableMuts[i]);
+        int semret = 0;
+        do {
+          semret = sem_wait(&orderTableMuts[i]);
+          if (semret == -1 && errno != EINTR) waiterStop(SEMAPHORE_FAIL);
+        } while (semret != 0);
+
         int currentPatience = -1;
         if (orderTable[i] != NULL) currentPatience = atomic_load(&orderTable[i]->patienceLevel);
         sem_post(&orderTableMuts[i]);
@@ -241,7 +280,12 @@ void* waiter(void* arg) {
 
       //Entratain guests
       if (grumpiestCustomer != -1) {//Someone was found
-        sem_wait(&orderTableMuts[grumpiestCustomer]); //Make sure the customer doesn't pull the carpet under the waiter
+        int semret = 0;
+        do {
+          semret = sem_wait(&orderTableMuts[grumpiestCustomer]); //Make sure the customer doesn't pull the carpet under the waiter
+          if (semret == -1 && errno != EINTR) waiterStop(SEMAPHORE_FAIL);
+        } while (semret != 0);
+
         if (orderTable[grumpiestCustomer] != NULL && orderTable[grumpiestCustomer]->arrivalTime == atomic_load(arrivalTimeMatcher[grumpiestCustomer])) { //And the client is even still there
           int roll = next(seed)%(ESUCCESSWEIGHT+EFAILWEIGHT+ECRITFAILWEIGHT); //Roll is in the bounds of all chances
           if (roll < ECRITFAILWEIGHT) { //Rolled bad enough to get a critical fail
