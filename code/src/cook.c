@@ -476,5 +476,10 @@ void* cook(void* arg) {
       }
     }
   }
+  
+  while (0<queue.queueSize) {
+    rmTask(&queue, 0);
+  }
+  
   pthread_exit(ALL_OK);
 }; 

@@ -312,4 +312,10 @@ void* waiter(void* arg) {
       }
     }
   }
+
+  for (int i = 0; i<menu.dishCount; i++) {
+    while (0< receipts[i].size) rmReceipt(&receipts[i], 0);
+  }
+  
+  pthread_exit(ALL_OK);
 }
