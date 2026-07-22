@@ -166,7 +166,7 @@ int main(){
     waiterArgs[i]->customerCount = maxCustomers;
     waiterArgs[i]->rxArrival = arrivalPipe[0];
     waiterArgs[i]->orderTable = orderTable;
-    waiterArgs[i]->orderTableMuts = orderTableMuts;
+    *waiterArgs[i]->orderTableMuts = orderTableMuts;
     waiterArgs[i]->arrivalTimeMatcher = arrivalTimeMatcher;
     waiterArgs[i]->txServing = servingSenders;
   }
