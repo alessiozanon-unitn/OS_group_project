@@ -42,7 +42,6 @@ int load_resources_from(const char* file_path, Kitchen *kitchen){
           resource.dirtyResourceCounters[i] = 0;
         }
 
-        printf("resourceCount: %d\n", kitchen->resourceCount);
         // Added here
         kitchen->resourceCount++;
         kitchen->resources = realloc(kitchen->resources, sizeof(Resource)*kitchen->resourceCount);
