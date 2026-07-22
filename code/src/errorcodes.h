@@ -9,6 +9,7 @@ typedef enum {
   FILE_NOT_FOUND, 
   SEMAPHORE_FAIL, 
   MALLOC_FAIL, 
-  WRITE_FAIL
+  WRITE_FAIL,
+  READ_FAIL
 } ErrorVals;
 #endif
