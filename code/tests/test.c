@@ -49,12 +49,15 @@ void test_resources_loading(){
     TEST_ASSERT_EQUAL_INT(0, kitchen->resources[i].dirtyDishesCount);
     int clean;
     int dirty;
+    int dirtyCountersMutex;
     sem_getvalue(&kitchen->resources[i].clean, &clean);
     sem_getvalue(&kitchen->resources[i].dirty, &dirty);
-    TEST_ASSERT_EQUAL_INT(kitchen->resourceCount,clean);
+    sem_getvalue(&kitchen->resources[i].dirtyCountersMutex, &dirtyCountersMutex);
+    TEST_ASSERT_EQUAL_INT(i+1,clean);
     TEST_ASSERT_EQUAL_INT(0,dirty);
+    TEST_ASSERT_EQUAL_INT(1,dirtyCountersMutex);
 
-    for(int j=0;j<kitchen->resourceCount;j++){
+    for(int j=0;j<clean+dirty;j++){
       TEST_ASSERT_EQUAL_INT(0, kitchen->resources[i].dirtyResourceCounters[j]);
     }
   }
