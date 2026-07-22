@@ -135,29 +135,29 @@ void* customer (void* arg) {
     ssize_t r; 
     do {
       r = read(rxServing, &in_dish, sizeof(int));
-      if (r == -1 && !(errno != EAGAIN || errno != EINTR)) customerStop(READ_FAIL);
-    } while (r != 0 && errno != EAGAIN); //If the pipe is empty move on
+      if (r == -1 && errno != EAGAIN) customerStop(READ_FAIL);
 
-    if(r > 0){
-      int semret = 0;
-      do {
-        semret = sem_wait(slotMut);
-        if (semret == -1 && errno != EINTR) customerStop(SEMAPHORE_FAIL);
-      } while (semret != 0);
+      if(r > 0){
+        int semret = 0;
+        do {
+          semret = sem_wait(slotMut);
+          if (semret == -1 && errno != EINTR) customerStop(SEMAPHORE_FAIL);
+        } while (semret != 0);
       
-      bool expended = false;
+        bool expended = false;
 
-      for(int i=0;i<orderSlot->count && !expended; i++){
-        // Compares each dish in the customer order with the menu dish indexed by the number taken from the waiter
-        if (orderSlot->dishList[i].dish == &menu->dishes[in_dish] && orderSlot->dishList[i].satisfied == false){
-          orderSlot->dishList[i].satisfied = true;
-          number_of_dishes_served++;
-          expended = true;
+        for(int i=0;i<orderSlot->count && !expended; i++){
+          // Compares each dish in the customer order with the menu dish indexed by the number taken from the waiter
+          if (orderSlot->dishList[i].dish == &menu->dishes[in_dish] && orderSlot->dishList[i].satisfied == false){
+            orderSlot->dishList[i].satisfied = true;
+            number_of_dishes_served++;
+            expended = true;
+          }
         }
+        sem_post(slotMut);
       }
-      sem_post(slotMut);
-    }
 
+    } while (r != -1); //If the pipe is empty move on
     // Decrements patience
     do {
       semret = sem_wait(slotMut);

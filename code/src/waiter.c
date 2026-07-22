@@ -147,8 +147,7 @@ void* waiter(void* arg) {
     int readret = 0;
     do {
       readret = read(rxArrival, &newClients[newCount], sizeof(int));
-      if (readret == -1 && !(errno == EAGAIN || errno == EINTR)) waiterStop(READ_FAIL);
-      if (readret == -1 && errno == EINTR) readret = 0; 
+      if (readret == -1 && errno != EAGAIN) waiterStop(READ_FAIL); 
       if (readret > 0) newCount++;
     } while (readret != 1);
     
@@ -238,8 +237,7 @@ void* waiter(void* arg) {
     readret = 0;
     do {
       readret = read(rxDishes, &dishIndex, sizeof(dishIndex));
-      if (readret == -1 && !(errno == EINTR || errno == EAGAIN)) waiterStop(WRITE_FAIL);
-      if (readret == -1 && errno == EAGAIN) readret = 0;
+      if (readret == -1 && errno != EAGAIN) waiterStop(READ_FAIL);
       if (readret > 0) {
         //Waiter has a plate, do something with it
         bool deliveredFlag = false;
