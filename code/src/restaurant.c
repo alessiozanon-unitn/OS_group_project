@@ -99,6 +99,8 @@ int main(){
     }
   }
 
+  fcntl(arrivalPipe[0]m F_SETFL, O_NONBLOCK);
+
   if (pipe(arrivalPipe) < 0) {
     //Pipe error
   }
