@@ -19,6 +19,8 @@
 #include <signal.h>
 #include "errorcodes.h"
 
+const int SLEEP_MULT; //How many in-game minutes to sleep between loops of the customer deployment, to encourage or discourage traffic spikes 
+
 Menu* menu;
 atomic_int score;
 double gameSpeed;
@@ -336,8 +338,7 @@ int main(){
       }
       if (currentActives[i] != -1) deployedCustomers++; //Count the current customers in the restaurant
     }
-
-    custom_sleep();
+    for (int i = 0; i<SLEEP_MULT; i++) custom_sleep();
     printf("Score:\t%d\nCustomer progress:\t%d\t%f\%\n", atomic_load(&score), deployedCustomers, deployedCustomers/totalCustomers);
   }
 
