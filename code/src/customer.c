@@ -15,6 +15,7 @@
 #include "utils.h"
 #include <time.h>
 #include "errorcodes.h"
+#include <stdio.h>
 
 extern Menu* menu;
 extern atomic_int score;
@@ -26,15 +27,19 @@ atomic_int* status;
 
 void customerStop (ErrorVals errornumber) {
   atomic_store(status, ERROR);
+  perror("Customer runtime error");
   int semret = 0;
   do {
-    sem_wait(slotMut);
-    if (semret == -1 && errno != EINTR) pthread_exit((void*) SEMAPHORE_FAIL);
+    semret = sem_wait(slotMut);
+    if (semret == -1 && errno != EINTR) {
+      perror("Customer can't access their slot mut");
+      pthread_exit((void*) SEMAPHORE_FAIL);
+    }
   } while (semret = 0);
   
   orderSlot = NULL;
   sem_post(slotMut);
-
+  
   pthread_exit((void*) errornumber);
 }
 

@@ -80,13 +80,10 @@ int main(){
   //Prepare the signal handling system
   struct sigaction act;
   act.sa_handler = status;
+  act.sa_flags = SA_RESTART; //Saves up a lot of code on R/W EINTR 
   
   sigset_t usr1;
-  sigset_t usr2;
-  
   sigemptyset(&usr1);
-  sigemptyset(&usr2);
-
   sigaddset(&usr1, SIGUSR1);
 
   //Mask incoming user signals while not ready to handle them, so they get queued (exploits the inheritance to also initialize all)
@@ -95,7 +92,7 @@ int main(){
   // Kitchen initalization
   kitchen = malloc(sizeof(Kitchen));
   if (kitchen == NULL) {
-    fprintf(stderr, "Could not allocate kitchen space");
+    perror("Could not allocate kitchen space");
     return MALLOC_FAIL;
   }
   kitchen->resourceCount = 0;
@@ -122,7 +119,7 @@ int main(){
   for (int i = 0; i<cookCount; i++) {
     cookRun[i] = malloc(sizeof(atomic_bool));
     if (cookRun[i] == NULL) {
-      fprintf(stderr, "Failed to create cook running status array");
+      perror("Failed to create cook running status array");
       return MALLOC_FAIL;
     } else atomic_store(cookRun[i], true);
   }
@@ -131,7 +128,7 @@ int main(){
   for (int i = 0; i<waiterCount; i++) {
     waiterRun[i] = malloc(sizeof(atomic_bool));
     if (waiterRun == NULL) {
-      fprintf(stderr, "Failed to create waiter running status array");
+      perror("Failed to create waiter running status array");
       return MALLOC_FAIL;
     } else atomic_store(waiterRun[i], true);
   }
@@ -145,7 +142,7 @@ int main(){
   //Initializing pipes
   for (int i = 0; i<cookCount; i++) {
     if (pipe(ordersPipes[i]) < 0) {
-      fprintf(stderr, "Could not create order Pipe n.%d", i);
+      perror("Could not create order Pipes");
       return PIPE_FAIL;
     } else {
       fcntl(ordersPipes[i][0], F_SETFL, O_NONBLOCK);
@@ -154,7 +151,7 @@ int main(){
 
   for (int i = 0; i<waiterCount; i++) {
     if (pipe(dishesPipes[i]) < 0) {
-      fprintf(stderr, "Could not create dish Pipe n.%d", i);
+      perror("Could not create dish Pipes");
       return PIPE_FAIL;
     } else {
       fcntl(dishesPipes[i][0], F_SETFL, O_NONBLOCK);
@@ -163,7 +160,7 @@ int main(){
 
   for (int i = 0; i<maxCustomers; i++) {
     if (pipe(servingPipes[i]) < 0) {
-      fprintf(stderr, "Could not create serving Pipe n.%d", i);
+      perror("Could not create serving Pipes");
         return PIPE_FAIL;
     } else {
       fcntl(servingPipes[i][0], F_SETFL, O_NONBLOCK);
@@ -171,7 +168,7 @@ int main(){
   }
   
   if (pipe(arrivalPipe) < 0) {
-    fprintf(stderr, "Could not create arrival Pipe");
+    perror("Could not create arrival Pipe");
     return PIPE_FAIL;
   }
   
@@ -198,7 +195,7 @@ int main(){
   for (int i = 0; i<cookCount; i++) {
     busyTime[i] = malloc(sizeof(atomic_int));
     if (busyTime[i] == NULL) {
-      fprintf(stderr, "Could not generate busyTime array");
+      perror("Could not generate busyTime array");
       return MALLOC_FAIL;
     } else atomic_store(busyTime[i], 0);
   }
@@ -211,7 +208,7 @@ int main(){
     sem_init(orderTableMuts[i], 0, 1);
     arrivalTimeMatcher[i] = malloc(sizeof(atomic_time));
     if (arrivalTimeMatcher[i] = NULL) {
-      fprintf(stderr, "Could not create arrival time match storage n.%d", i);
+      perror("Could not create arrival time-match storages");
       return MALLOC_FAIL;
     } else atomic_store(arrivalTimeMatcher[i], 0);
   }
@@ -219,7 +216,7 @@ int main(){
   for (int i = 0; i<totalCustomers; i++) {
     customerStatuses[i] = malloc(sizeof(atomic_int));
     if (customerStatuses[i] == NULL) {
-      fprintf(stderr, "Could not create customer status array");
+      perror("Could not create customer status array");
       return MALLOC_FAIL;
     } else atomic_store(customerStatuses[i], UNSENT);
   }
@@ -231,7 +228,7 @@ int main(){
   for (int i = 0; i<cookCount; i++) {
     cookArgs[i] = malloc(sizeof(CookArg*));
     if (cookArgs[i] = NULL) {
-      fprintf(stderr, "Failed to allocate cook argument space n.%d", i);
+      perror("Failed to allocate cook argument spaces");
       return MALLOC_FAIL;
     }
     cookArgs[i]->run = cookRun[i];
@@ -248,7 +245,7 @@ int main(){
   for (int i = 0; i<waiterCount; i++) {
     waiterArgs[i] = malloc(sizeof(WaiterArg*));
     if (waiterArgs[i] = NULL) {
-      fprintf(stderr, "Failed to allocate waiter argument space n.%d", i);
+      perror("Failed to allocate waiter argument space");
       return MALLOC_FAIL;
     }
     waiterArgs[i]->run = waiterRun[i];
@@ -272,7 +269,7 @@ int main(){
   //Start cooks
   for (int i = 0; i<cookCount; i++) {
     if(pthread_create(&Cooks[i], NULL, cook, (void*) cookArgs[i]) != 0){
-      fprintf(stderr, "Could not create cook n.%d's thread", i);
+      perror("Could not create cook thread");
       return THREAD_FAIL;
     }
   }
@@ -280,7 +277,7 @@ int main(){
   //Start waiters
   for (int i = 0; i<waiterCount; i++) {
     if(pthread_create(&Waiters[i], NULL, waiter, (void*) waiterArgs[i]) != 0){
-      fprintf(stderr, "Could not create waiter n.%d's thread", i);
+      perror("Could not create waiter thread");
       return THREAD_FAIL;
     }
   }
@@ -289,7 +286,10 @@ int main(){
   customersSent = 0;
   
   //Attach signal handler and enable SIGUSR1
-  sigaction(SIGUSR1, &act, NULL); 
+  if (sigaction(SIGUSR1, &act, NULL) != 0) {
+    perror("Failed to set up sigaction");
+    return THREAD_FAIL;
+  }
   pthread_sigmask(SIG_UNBLOCK, &usr1, NULL);
 
   // Customers loop
@@ -302,7 +302,7 @@ int main(){
         // Sets new customer args
         CustomerArg* customerArgs = malloc(sizeof(CustomerArg)); // Are freed by the customer using it
         if (customerArgs == NULL) {
-          fprintf(stderr, "Could not allocate customer argument space n.%d", customersSent);
+          perror("Could not allocate customer argument space");
           return MALLOC_FAIL;
         }
         customerArgs->seed[0] = next_splitmix64();
@@ -322,7 +322,7 @@ int main(){
         pthread_sigmask(SIG_BLOCK, &usr1, NULL);
         // Spawns new customer
         if (pthread_create(&Customers[i], NULL, &customer, (void*) customerArgs) != 0) {
-          fprintf(stderr, "Could not create customer n.%d's thread", customersSent);
+          perror("Could not create customer thread");
           return THREAD_FAIL;
         }
         customersSent++;

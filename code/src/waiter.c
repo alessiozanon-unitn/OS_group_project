@@ -12,6 +12,7 @@
 #include <stdatomic.h>
 #include <time.h>
 #include <errno.h>
+#include <stdio.h>
 
 extern Menu menu;
 extern atomic_int score;
@@ -29,6 +30,7 @@ Order** orderTable; //Must be global because qsort_r is a feature test macro, th
 atomic_time** arrivalTimeMatcher; //Used to make sure the client hasn't left and been replaced
 
 void waiterStop(ErrorVals errornumber) {
+  perror("Waiter runtime error");
   pthread_exit((void*) errornumber);
 }
 

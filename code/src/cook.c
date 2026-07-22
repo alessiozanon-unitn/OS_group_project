@@ -11,6 +11,7 @@
 #include <semaphore.h>
 #include <stdatomic.h>
 #include <pthread.h>
+#include <stdio.h>
 
 const int OVERWORK_THRESHOLD = 3;
 extern Menu menu;
@@ -18,7 +19,7 @@ extern atomic_int score;
 extern double gameSpeed;
 
 void cookStop(ErrorVals errornumber) {
-
+  perror("Cook runtime error");
   pthread_exit((void*) errornumber);
 }
 
