@@ -22,8 +22,10 @@ extern double gameSpeed;
 
 sem_t* slotMut; //Allows the thread-exiting function to do so cleanly and gracefully
 Order* orderSlot;
+atomic_int* status;
 
 void customerStop (ErrorVals errornumber) {
+  atomic_store(status, ERROR);
   int semret = 0;
   do {
     sem_wait(slotMut);
@@ -55,13 +57,16 @@ void* customer (void* arg) {
   int txArrival = (int) args->txArrival;
   int max_dishes_per_order = (int) args->max_dishes_per_order;
   int patience_level_range = (int) args->patience_level_range;
-
+  status = args->status;
   // xoshiro's generator thread-local state loaded from the main thread
   uint64_t s[4];
   s[0] = args->seed[0];
   s[1] = args->seed[1];
   s[2] = args->seed[2];
   s[3] = args->seed[3];
+
+  // Frees CustomerArgs
+  free(args);
 
   // Generate random dish dynamic array
   int length = (next(s) % max_dishes_per_order) + 1;
@@ -77,7 +82,6 @@ void* customer (void* arg) {
     // Adds dish time to patience floor
     patienceFloor += menu->dishes[dishIndex].time;
   }
-
 
 
   // Generates random order
@@ -104,6 +108,9 @@ void* customer (void* arg) {
     writeret = write(txArrival, &tableNumber, sizeof(int));
     if (writeret == -1 && errno != EINTR) customerStop(WRITE_FAIL);
   } while (writeret != 0);
+
+  //Officially ready to wait 
+  atomic_store(status, WAITING);
 
   // Customer loop
   bool all_satisfied;
@@ -181,8 +188,10 @@ void* customer (void* arg) {
 
   if(all_satisfied){ // If every order was satisfied
     atomic_fetch_add(&score, lround(total_price * (1.0 - ((double) time_to_serve/(double)orderSlot->patienceLevel))));
+    atomic_store(status, SATISFIED);
   }else{ // If patience ran out
     atomic_fetch_add(&score, lround(total_price * log2(1 + ((double) orderSlot->patienceLevel / (1 + number_of_dishes_served)))));
+    atomic_store(status, SATISFIED);
   }
 
   // Exits
@@ -190,9 +199,6 @@ void* customer (void* arg) {
   free(dishList);
 
   sem_post(slotMut);
-
-  // Frees CustomerArgs
-  free(args);
 
   pthread_exit(ALL_OK);
 }

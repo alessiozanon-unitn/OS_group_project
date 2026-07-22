@@ -16,18 +16,54 @@
 #include <stdatomic.h>
 #include "splitmix64.h"
 #include "utils.h"
+#include <signal.h>
+#include "errorcodes.h"
 
 Menu* menu;
 atomic_int score;
 double gameSpeed;
 
+//Globals to allow access by signal handler
+int customersSent = 0;
+int totalCustomers = 0;
+uint cookCount;
+atomic_int** busyTime; 
+Kitchen* kitchen;
+atomic_int** customerStatuses;
+
+void status(int signum) {
+  int sent = 0;
+  int disappointment = 0;
+  int waiting = 0;
+  for (int i = 0; i<totalCustomers; i++) {
+    int current = atomic_load(customerStatuses[i]);
+    if (current != UNSENT) {
+      sent++;
+      if (current == WAITING) waiting++;
+      else if (current == UNSATISFIED) disappointment++;
+    }
+  }
+
+  printf("Score:\t%d\nCurrent customers:\t%d\nUnsatisfied customers:\t%d\nProgress:\t%d/%d\n", atomic_load(&score), waiting, disappointment, customersSent, totalCustomers);
+  for (int i = 0; i<cookCount; i++) {
+    printf("Cook%d's queue size:\t%d\n", i, atomic_load(busyTime[i]));
+  }
+  for (int i = 0; i<kitchen->resourceCount; i++) {
+    int clean;
+    int dirty;
+    sem_getvalue(&kitchen->resources[i].clean, &clean);
+    sem_getvalue(&kitchen->resources[i].dirty, &dirty);
+    printf("%s status:\t%dClean\t%dDirty", kitchen->resources[i].name, clean, dirty);
+  }
+}
+
 int main(){
 
   // Loads env variables
-  const uint cookCount = atoi(getenv("NUM_COOKS"));
+  cookCount = atoi(getenv("NUM_COOKS"));
   const uint waiterCount = atoi(getenv("NUM_WAITERS"));
   const uint maxCustomers = atoi(getenv("MAX_CUSTOMERS"));
-  const uint totalCustomers = atoi(getenv("TOTAL_CUSTOMERS"));
+  totalCustomers = atoi(getenv("TOTAL_CUSTOMERS"));
   const uint randomSeed = atoi(getenv("RANDOM_SEED"));
   gameSpeed = atoi(getenv("GAME_SPEED"));
   const char* menu_file = getenv("MENU_FILE");
@@ -41,7 +77,7 @@ int main(){
 
 
   // Kitchen initalization
-  Kitchen* kitchen = malloc(sizeof(Kitchen));
+  kitchen = malloc(sizeof(Kitchen));
   kitchen->resourceCount = 0;
   kitchen->resources = NULL;
   sem_init(&kitchen->sink, 0, 1);
@@ -56,17 +92,10 @@ int main(){
   //print_kitchen(kitchen);
   // print_menu(menu);
 
-
-
   //PID holders
   pthread_t Cooks[cookCount];
   pthread_t Waiters[waiterCount];
   pthread_t Customers[maxCustomers];
-
-  //Returns
-  int returnCooks[cookCount];
-  int returnWaiters[waiterCount];
-  int returnCustomers[maxCustomers];
 
   //Pipes
   int ordersPipes[cookCount][2];
@@ -99,7 +128,7 @@ int main(){
     }
   }
 
-  fcntl(arrivalPipe[0]m F_SETFL, O_NONBLOCK);
+  fcntl(arrivalPipe[0], F_SETFL, O_NONBLOCK);
 
   if (pipe(arrivalPipe) < 0) {
     //Pipe error
@@ -123,19 +152,25 @@ int main(){
 
 
   //Shared arrays
-  atomic_int busyTime[cookCount];
+  busyTime = calloc(cookCount, sizeof(atomic_int));
   for (int i = 0; i<cookCount; i++) {
     atomic_store(&busyTime[i], 0);
   }
 
   Order* orderTable[maxCustomers];
-  sem_t orderTableMuts[maxCustomers];
+  sem_t* orderTableMuts[maxCustomers];
   atomic_time* arrivalTimeMatcher[maxCustomers];
   for (int i = 0; i<maxCustomers; i++) {
     orderTable[i] = NULL;
-    sem_init(&orderTableMuts[i], 0, 1);
+    sem_init(orderTableMuts[i], 0, 1);
     arrivalTimeMatcher[i] = malloc(sizeof(atomic_time));
     atomic_store(arrivalTimeMatcher[i], 0);
+  }
+
+  customerStatuses = calloc(totalCustomers, sizeof(atomic_int));
+  if (customerStatuses == NULL && totalCustomers != 0) return MALLOC_FAIL;
+  for (int i = 0; i<totalCustomers; i++) {
+    atomic_store(customerStatuses[i], UNSENT);
   }
 
   //Argument arrays (client done later in repeating section)
@@ -151,7 +186,7 @@ int main(){
     cookArgs[i]->kitchen = kitchen;
     cookArgs[i]->rxOrders = ordersPipes[i][0];
     cookArgs[i]->txDishes = dishSenders;
-    cookArgs[i]->busyTime = &busyTime[i];
+    cookArgs[i]->busyTime = busyTime[i];
   }
 
   for (int i = 0; i<waiterCount; i++) {
@@ -168,7 +203,7 @@ int main(){
     waiterArgs[i]->customerCount = maxCustomers;
     waiterArgs[i]->rxArrival = arrivalPipe[0];
     waiterArgs[i]->orderTable = orderTable;
-    *waiterArgs[i]->orderTableMuts = orderTableMuts;
+    waiterArgs[i]->orderTableMuts = orderTableMuts;
     waiterArgs[i]->arrivalTimeMatcher = arrivalTimeMatcher;
     waiterArgs[i]->txServing = servingSenders;
   }
@@ -191,7 +226,7 @@ int main(){
 
   // Customers
 
-  int customersSent = 0;
+  customersSent = 0;
 
   // Customers loop
   while (customersSent < totalCustomers) {
@@ -206,6 +241,7 @@ int main(){
         customerArgs->seed[1] = next_splitmix64();
         customerArgs->seed[2] = next_splitmix64();
         customerArgs->seed[3] = next_splitmix64();
+        customerArgs->status = customerStatuses[i];
         customerArgs->orderSlot = orderTable[i];
         sem_init(customerArgs->slotMut, 0, 1);
         customerArgs->rxServing = servingPipes[i][0];
@@ -215,7 +251,7 @@ int main(){
         customerArgs->patience_level_range = patience_level_range;
 
         // Spawns new customer
-        returnCustomers[i] = pthread_create(&Customers[i], NULL, &customer, (void*) customerArgs);
+        if (pthread_create(&Customers[i], NULL, &customer, (void*) customerArgs) != 0) fprintf(stderr, "Could not create customer n.%d's thread", customersSent);
         customersSent++;
       }
     }
@@ -224,12 +260,14 @@ int main(){
   }
 
   //Wait for all clients to leave and joins them
+  int returnCustomers[maxCustomers];
   for(int i=0;i<maxCustomers;i++){
     void *return_value;
     pthread_join(Customers[i], &return_value);
     returnCustomers[i] = (int)(intptr_t) return_value;
   }
 
+  int returnCooks[cookCount];
   //Joins cooks
   for(int i=0;i<cookCount;i++){
     void *return_value;
@@ -237,6 +275,7 @@ int main(){
     returnCooks[i] = (int)(intptr_t) return_value;
   }
 
+  int returnWaiters[waiterCount];
   //Joins waiters
   for(int i=0;i<waiterCount;i++){
     void *return_value;

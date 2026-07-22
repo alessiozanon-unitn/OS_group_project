@@ -29,7 +29,7 @@ typedef struct WaiterArg {
   int cookCount; //#Cook
   int* txOrders; //Array of size #Cook
   int rxDishes;
-  atomic_int* busyTime; //Full array, for reading only
+  atomic_int** busyTime; //Full array
   int customerCount; //#Max_Customers
   int rxArrival;
   Order** orderTable; //Full array, can see where orders are assigned;
@@ -48,6 +48,7 @@ typedef struct WaiterArg {
 
 typedef struct CustomerArg {
   uint64_t seed[4];
+  atomic_int* status;
   Order* orderSlot; //Position in orderTable for their order
   sem_t* slotMut;
   int rxServing;

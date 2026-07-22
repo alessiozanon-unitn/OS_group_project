@@ -2,7 +2,7 @@
 #define ERRORCODES
 
 typedef enum {
-  ALL_OK, 
+  ALL_OK,
   INVALID_DISH, 
   INVALID_RESOURCE, 
   INVALID_PARAMETER, 
@@ -10,6 +10,7 @@ typedef enum {
   SEMAPHORE_FAIL, 
   MALLOC_FAIL, 
   WRITE_FAIL,
-  READ_FAIL
+  READ_FAIL, 
+  THREAD_FAIL
 } ErrorVals;
 #endif
