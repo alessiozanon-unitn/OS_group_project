@@ -201,12 +201,13 @@ int main(){
       return MALLOC_FAIL;
     } else atomic_store(busyTime[i], 0);
   }
-
-  Order* orderTable[maxCustomers];
+  
+  printf("ONE");
+  Order** orderTable[maxCustomers];
   sem_t* orderTableMuts[maxCustomers];
   atomic_time* arrivalTimeMatcher[maxCustomers];
   for (int i = 0; i<maxCustomers; i++) {
-    orderTable[i] = NULL;
+    orderTable[i] = malloc(sizeof(Order*));
     orderTableMuts[i] = malloc(sizeof(sem_t));
     if (orderTableMuts[i] == NULL) {
       perror("Could not create mutex array for the order table");
@@ -218,6 +219,7 @@ int main(){
       return MALLOC_FAIL;
     } else atomic_store(arrivalTimeMatcher[i], 0);
   }
+  printf("TWO");
 
   for (int i = 0; i<totalCustomers; i++) {
     customerStatuses[i] = malloc(sizeof(atomic_int));

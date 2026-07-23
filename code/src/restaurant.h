@@ -34,7 +34,7 @@ typedef struct WaiterArg {
   atomic_int** busyTime; //Full array
   int customerCount; //#Max_Customers
   int rxArrival;
-  Order** orderTable; //Full array, can see where orders are assigned;
+  Order*** orderTable; //Full array, can see where orders are assigned;
   sem_t** orderTableMuts;
   atomic_time**arrivalTimeMatcher;
   int* txServing; //Array of size #Max_Customers
@@ -51,7 +51,7 @@ typedef struct WaiterArg {
 typedef struct CustomerArg {
   uint64_t seed[4];
   atomic_int* status;
-  Order* orderSlot; //Position in orderTable for their order
+  Order** orderSlot; //Position in orderTable for their order
   sem_t* slotMut;
   int rxServing;
   int tableNumber; //Index of the orderslot, pseudo ID;
