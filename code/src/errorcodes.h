@@ -12,6 +12,7 @@ typedef enum {
   WRITE_FAIL,
   READ_FAIL, 
   THREAD_FAIL,
-  PIPE_FAIL
+  PIPE_FAIL,
+  FILE_FAIL
 } ErrorVals;
 #endif

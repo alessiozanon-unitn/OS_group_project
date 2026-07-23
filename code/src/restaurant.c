@@ -55,8 +55,9 @@ void status(int signum) {
     int dirty;
     sem_getvalue(&kitchen->resources[i].clean, &clean);
     sem_getvalue(&kitchen->resources[i].dirty, &dirty);
-    printf("%s status:\t%dClean\t%dDirty", kitchen->resources[i].name, clean, dirty);
+    printf("%s status:\t%d Clean\t%d Dirty\n", kitchen->resources[i].name, clean, dirty);
   }
+  printf("\n\n\n");
 }
 
 int main(){
@@ -72,6 +73,17 @@ int main(){
   const char* resources_file = getenv("RESOURCES_FILE");
   const int max_dishes_per_order = atoi(getenv("MAX_DISHES_PER_ORDER"));
   const int patience_level_range = atoi(getenv("PATIENCE_LEVEL_RANGE"));
+  
+  int pidHolder = creat("/tmp/restaurant.pid", S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH); 
+  if (pidHolder < 0) {
+    perror("Could not crate PID file in tmp");
+    return FILE_FAIL;
+  } else {
+    pid_t selfPID = getpid();
+    dprintf(pidHolder, "%d", selfPID);
+    close(pidHolder);
+    if (-2 == -1) return WRITE_FAIL;
+  }
 
   // Splitmix state variable is initialized through the env variable randomSeed
   // and then used to initialize the state of the threads' states to use with xoshiro's generator
@@ -416,7 +428,8 @@ int main(){
     pthread_join(Waiters[i], &return_value);
     returnWaiters[i] = (int)(intptr_t) return_value;
   }
-
+  
+  remove("/tmp/restaurant.pid"); //Remove PID file
 
   return ALL_OK;
 }

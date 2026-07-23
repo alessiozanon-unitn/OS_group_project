@@ -8,7 +8,7 @@ clean:
 	rm -f ./obj/*.o #Remove object files
 	rm -f ./restaurant #Remove executable
 	rm -f ./test #Remove test executable
-
+	rm -f /tmp/restaurant.pid #remove possible leftover pid file
 run: build
 	./script/bootstrap.sh $(ARGS)
 
@@ -28,6 +28,7 @@ gdb: clean src/restaurant.c src/cook.c src/customer.c src/waiter.c src/menu.c sr
 	gcc -c $(FLAGS) -g src/xoshiro256plusplus.c -o obj/xoshiro256plusplus.o
 	gcc -o $(FLAGS) -g obj/restaurant.o $(COMMON_OBJ) -o restaurant	
 	gdb restaurant
+
 obj/restaurant.o: src/restaurant.c
 	gcc -c -pthread src/restaurant.c -o obj/restaurant.o
 obj/cook.o: src/cook.c
