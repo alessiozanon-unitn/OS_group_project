@@ -35,18 +35,13 @@ void waiterStop(ErrorVals errornumber) {
 }
 
 void waiterSleep(int sleepTime) {
-  if (gameSpeed >= 1) {//Speed is faster than real-time, reduce usleep number
-    for (int i = 0; i<sleepTime; i++) {
-      for (int ii = 0; ii<60; ii++) {
-        usleep(lround((1000000-1)/gameSpeed)); //Sleep for an in-game minute
-      }
-    }
-  } else {//Speed is slower than real-time, sleep more times per in-game minute 
-    double realSleepTime = 1000000.0f * 60.0f / gameSpeed;
-    for (int i = 0; i<sleepTime; i++) {
-      for (int ii = lround(realSleepTime); ii>0; ii - (1000000 -1)) { //Sleep all the time off in an in-game second
-        usleep(ii%(1000000-1));
-      }
+  long minute = lround(1000000.0 * 60.0 / gameSpeed);
+  for (int i = 0; i<sleepTime; i++) {
+    for (long ii = minute; ii>0; ii -= (1000000-1)) {
+      if (ii>=(1000000-1))
+          usleep(1000000-1);
+      else
+        usleep(ii);
     }
   }
 }
@@ -134,10 +129,12 @@ void* waiter(void* arg) {
   free(arg);
 
   dishReceipt receipts[menu.dishCount]; //Keep track of what ordered for who
-  for (int i = 0; i<menu.dishCount; i++) {
-    receipts[i] = (dishReceipt){.size = 0, .clientIndexes = NULL}; //Init the fields
+  for (int i = 0; i<menu.dishCount; i++) {//Init the fields
+    receipts[i].size = 0;
+    receipts[i].clientIndexes = NULL;
   }
   time_t localArrivalMatcher[customerCount];
+  arrivalTimeMatcher = calloc(customerCount, sizeof(atomic_time*));
   for (int i = 0; i<customerCount; i++) {
     arrivalTimeMatcher[i] = threadArrivalTimeMatcher[i];
     localArrivalMatcher[i] = 0;

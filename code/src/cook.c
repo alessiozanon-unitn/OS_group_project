@@ -24,21 +24,15 @@ void cookStop(ErrorVals errornumber) {
 }
 
 void cookSleep(int expectedBusy, atomic_int* busyTimePosition) {
-  if (gameSpeed >= 1) {//Speed is faster than real-time, reduce usleep number
-    for (int i = 0; i<expectedBusy; i++) {
-      for (int ii = 0; ii<60; ii++) {
-        usleep(lround((1000000-1)/gameSpeed)); //Sleep for an in-game minute
-      }
-      atomic_fetch_sub(&busyTimePosition, 1);
+  long minute = lround(1000000.0 * 60.0 / gameSpeed);
+  for (int i = 0; i<expectedBusy; i++) {
+    for (long ii = minute; ii>0; ii -= (1000000-1)) {
+      if (ii>=(1000000-1))
+          usleep(1000000-1);
+      else
+        usleep(ii);
     }
-  } else {//Speed is slower than real-time, sleep more times per game minute 
-    double realSleepTime = 1000000.0f * 60.0f / gameSpeed;
-    for (int i = 0; i<expectedBusy; i++) {
-      for (int ii = lround(realSleepTime); ii>0; ii - (1000000 -1)) { //Sleep all the time off in an in-game second
-        usleep(ii%(1000000-1));
-      }
-      atomic_fetch_sub(&busyTimePosition, 1);
-    }
+    atomic_fetch_sub(busyTimePosition, 1);
   }
 }
 

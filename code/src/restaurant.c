@@ -19,9 +19,9 @@
 #include <signal.h>
 #include "errorcodes.h"
 
-const int SLEEP_MULT; //How many in-game minutes to sleep between loops of the customer deployment, to encourage or discourage traffic spikes 
+const int SLEEP_MULT = 1; //How many in-game minutes to sleep between loops of the customer deployment, to encourage or discourage traffic spikes 
 
-Menu* menu;
+Menu menu;
 atomic_int score;
 double gameSpeed;
 
@@ -60,8 +60,6 @@ void status(int signum) {
 }
 
 int main(){
-
-  bool everyThingOK = true;
 
   // Loads env variables
   cookCount = atoi(getenv("NUM_COOKS"));
@@ -117,22 +115,28 @@ int main(){
   pthread_t Customers[maxCustomers];
 
   //Run-status holders
-  atomic_bool* cookRun[cookCount];
-  for (int i = 0; i<cookCount; i++) {
+  atomic_bool** cookRun = calloc(cookCount, sizeof(atomic_bool*));
+  if (cookRun == NULL) {
+    perror("Failed to create cook running status array");
+    return MALLOC_FAIL;
+  } else for (int i = 0; i<cookCount; i++) {
     cookRun[i] = malloc(sizeof(atomic_bool));
     if (cookRun[i] == NULL) {
-      perror("Failed to create cook running status array");
+      perror("Failed to create cook running status element");
       return MALLOC_FAIL;
-    } else atomic_store(cookRun[i], true);
+    } else atomic_init(cookRun[i], true);
   }
 
-  atomic_bool* waiterRun[waiterCount];
-  for (int i = 0; i<waiterCount; i++) {
+  atomic_bool** waiterRun = calloc(waiterCount, sizeof(atomic_bool*));
+  if (waiterRun == NULL) {
+    perror("Failed to create waiter running status array");
+    return MALLOC_FAIL;
+  } else for (int i = 0; i<waiterCount; i++) {
     waiterRun[i] = malloc(sizeof(atomic_bool));
     if (waiterRun == NULL) {
       perror("Failed to create waiter running status array");
       return MALLOC_FAIL;
-    } else atomic_store(waiterRun[i], true);
+    } else atomic_init(waiterRun[i], true);
   }
 
   //Pipes
@@ -163,7 +167,7 @@ int main(){
   for (int i = 0; i<maxCustomers; i++) {
     if (pipe(servingPipes[i]) < 0) {
       perror("Could not create serving Pipes");
-        return PIPE_FAIL;
+      return PIPE_FAIL;
     } else {
       fcntl(servingPipes[i][0], F_SETFL, O_NONBLOCK);
     }
@@ -194,49 +198,78 @@ int main(){
 
 
   //Shared arrays
-  for (int i = 0; i<cookCount; i++) {
+  busyTime = calloc(cookCount, sizeof(atomic_int*));
+  if (busyTime == NULL) {
+    perror("Failed to create busyTime array");
+    return MALLOC_FAIL;
+  } else for (int i = 0; i<cookCount; i++) {
     busyTime[i] = malloc(sizeof(atomic_int));
     if (busyTime[i] == NULL) {
-      perror("Could not generate busyTime array");
+      perror("Could not generate busyTime element");
       return MALLOC_FAIL;
     } else atomic_store(busyTime[i], 0);
   }
   
-  printf("ONE");
-  Order** orderTable[maxCustomers];
-  sem_t* orderTableMuts[maxCustomers];
-  atomic_time* arrivalTimeMatcher[maxCustomers];
+  Order*** orderTable = calloc(maxCustomers, sizeof(Order**));
+  if (orderTable == NULL) {
+    perror("Could not create orderTable array");
+    return MALLOC_FAIL;
+  }
+  sem_t** orderTableMuts = calloc(maxCustomers, sizeof(sem_t*));
+  if (orderTableMuts == NULL) {
+    perror("Could not create orderTable mutex array");
+    return MALLOC_FAIL;
+  }
+  atomic_time** arrivalTimeMatcher = calloc(maxCustomers, sizeof(atomic_time*));
+  if (arrivalTimeMatcher == NULL) {
+    perror("Could not create shared arrivalTimeMatcher array");
+    return MALLOC_FAIL;
+  }
   for (int i = 0; i<maxCustomers; i++) {
     orderTable[i] = malloc(sizeof(Order*));
-    orderTableMuts[i] = malloc(sizeof(sem_t));
+    if (orderTable[i] == NULL) {
+      perror("Could not create order table pointer element");
+      return MALLOC_FAIL;
+    } else orderTableMuts[i] = malloc(sizeof(sem_t));
     if (orderTableMuts[i] == NULL) {
-      perror("Could not create mutex array for the order table");
+      perror("Could not create mutex element for the order table array");
       return MALLOC_FAIL;
     } else sem_init(orderTableMuts[i], 0, 1);
     arrivalTimeMatcher[i] = malloc(sizeof(atomic_time));
-    if (arrivalTimeMatcher[i] = NULL) {
-      perror("Could not create arrival time-match storages");
+    if (arrivalTimeMatcher[i] == NULL) {
+      perror("Could not create arrival time-match storage element");
       return MALLOC_FAIL;
-    } else atomic_store(arrivalTimeMatcher[i], 0);
+    } else atomic_init(arrivalTimeMatcher[i], 0);
   }
-  printf("TWO");
-
-  for (int i = 0; i<totalCustomers; i++) {
+  
+  customerStatuses = calloc(totalCustomers, sizeof(atomic_int*));
+  if (customerStatuses == NULL) {
+    perror("Could not generate customer status array");
+    return MALLOC_FAIL;
+  } else for (int i = 0; i<totalCustomers; i++) {
     customerStatuses[i] = malloc(sizeof(atomic_int));
     if (customerStatuses[i] == NULL) {
-      perror("Could not create customer status array");
+      perror("Could not create customer status element");
       return MALLOC_FAIL;
-    } else atomic_store(customerStatuses[i], UNSENT);
+    } else atomic_init(customerStatuses[i], UNSENT);
   }
 
   //Argument arrays (client done later in repeating section)
-  CookArg* cookArgs[cookCount];
-  WaiterArg* waiterArgs[waiterCount];
+  CookArg** cookArgs = calloc(cookCount, sizeof(CookArg*));
+  if (cookArgs == NULL) {
+    perror("Could not generate cook arguments array");
+    return MALLOC_FAIL;
+  }
+  WaiterArg** waiterArgs = calloc(waiterCount, sizeof(WaiterArg*));
+  if (waiterArgs == NULL) {
+    perror("Could not generate waiter arguments array");
+    return MALLOC_FAIL;
+  }
 
   for (int i = 0; i<cookCount; i++) {
-    cookArgs[i] = malloc(sizeof(CookArg*));
-    if (cookArgs[i] = NULL) {
-      perror("Failed to allocate cook argument spaces");
+    cookArgs[i] = malloc(sizeof(CookArg));
+    if (cookArgs[i] == NULL) {
+      perror("Failed to allocate cook argument element");
       return MALLOC_FAIL;
     }
     cookArgs[i]->run = cookRun[i];
@@ -251,9 +284,9 @@ int main(){
   }
 
   for (int i = 0; i<waiterCount; i++) {
-    waiterArgs[i] = malloc(sizeof(WaiterArg*));
-    if (waiterArgs[i] = NULL) {
-      perror("Failed to allocate waiter argument space");
+    waiterArgs[i] = malloc(sizeof(WaiterArg));
+    if (waiterArgs[i] == NULL) {
+      perror("Failed to allocate waiter argument element");
       return MALLOC_FAIL;
     }
     waiterArgs[i]->run = waiterRun[i];
@@ -274,7 +307,7 @@ int main(){
     waiterArgs[i]->txServing = servingSenders;
   }
 
-  //Start cooks
+  //Start cooksi
   for (int i = 0; i<cookCount; i++) {
     if(pthread_create(&Cooks[i], NULL, cook, (void*) cookArgs[i]) != 0){
       perror("Could not create cook thread");
@@ -300,17 +333,26 @@ int main(){
   }
   pthread_sigmask(SIG_UNBLOCK, &usr1, NULL);
   
-  int currentActives[maxCustomers];
+  int currentActives[maxCustomers]; //Local
   for (int i = 0; i<maxCustomers; i++) {
     currentActives[i] = -1; //No customer here value
   }
+  
+  time_t startTime = time(NULL);
 
   // Customers loop
-  while (customersSent < totalCustomers) {
+  for (int loopCount = 0; customersSent < totalCustomers; loopCount++) {
     int deployedCustomers = 0;
+    printf("Cycle %d(%ds)\n", loopCount, time(NULL)-startTime);
     //Check over all slots, making sure to stop if all customers to send have been
     for(int i = 0; i<maxCustomers && customersSent < totalCustomers; i++) {
-      if(currentActives[i] != -1 || atomic_load(customerStatuses[currentActives[i]]) != WAITING) { //If the slot is empty or the non-empty slot has a customer who is satisfied, unsatisfied, or erroed out, can be replaced
+      if(
+        currentActives[i] == -1 || ( //If the slot is empty or
+          atomic_load(customerStatuses[currentActives[i]]) != WAITING && //The customer is not waiting and
+          atomic_load(customerStatuses[currentActives[i]]) != UNSENT //The customer is not unsent
+        //I.E the customer is either satisfied, unsatisfied, or errored
+        )
+      ) { //Can be replaced
         // Sets new customer args
         CustomerArg* customerArgs = malloc(sizeof(CustomerArg)); // Are freed by the customer using it
         if (customerArgs == NULL) {
@@ -323,7 +365,7 @@ int main(){
         customerArgs->seed[3] = next_splitmix64();
         customerArgs->status = customerStatuses[i];
         customerArgs->orderSlot = orderTable[i];
-        sem_init(customerArgs->slotMut, 0, 1);
+        customerArgs->slotMut = orderTableMuts[i];
         customerArgs->rxServing = servingPipes[i][0];
         customerArgs->tableNumber = i;
         customerArgs->txArrival = arrivalPipe[1];
@@ -344,8 +386,9 @@ int main(){
       }
       if (currentActives[i] != -1) deployedCustomers++; //Count the current customers in the restaurant
     }
+    
+    printf("Score:\t%d\nCustomer progress:\t%d\t%f\%\n\n\n", atomic_load(&score), deployedCustomers, deployedCustomers/totalCustomers);
     for (int i = 0; i<SLEEP_MULT; i++) custom_sleep();
-    printf("Score:\t%d\nCustomer progress:\t%d\t%f\%\n", atomic_load(&score), deployedCustomers, deployedCustomers/totalCustomers);
   }
 
   //Wait for all clients to leave and joins them

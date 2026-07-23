@@ -8,10 +8,13 @@
 extern double gameSpeed;
 
 void custom_sleep(){
-  int cycles = lround(1000000.0 * 60.0 / gameSpeed);
-
-  for(int i= cycles; i>0; i -= (1000000-1)){
-    usleep(i%(1000000-1));
+  long cycles = lround(1000000.0 * 60.0 / gameSpeed);
+  for(long i= cycles; i>0; i -= (1000000-1)){
+    if (i>=(1000000-1))
+      usleep((1000000-1));
+    else {
+      usleep(i);
+    }
   }
 }
 

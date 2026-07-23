@@ -17,7 +17,7 @@
 #include "errorcodes.h"
 #include <stdio.h>
 
-extern Menu* menu;
+extern Menu menu;
 extern atomic_int score;
 extern double gameSpeed;
 
@@ -80,12 +80,12 @@ void* customer (void* arg) {
   if (dishList == NULL && errno == ENOMEM) customerStop(MALLOC_FAIL);
 
   for(int i=0;i<length;i++){
-    int dishIndex = next(s) % menu->dishCount;
-    dishList[i].dish = &menu->dishes[dishIndex];
+    int dishIndex = next(s) % menu.dishCount;
+    dishList[i].dish = &menu.dishes[dishIndex];
     dishList[i].satisfied = false;
-    total_price += menu->dishes[dishIndex].price;
+    total_price += menu.dishes[dishIndex].price;
     // Adds dish time to patience floor
-    patienceFloor += menu->dishes[dishIndex].time;
+    patienceFloor += menu.dishes[dishIndex].time;
   }
 
 
@@ -161,7 +161,7 @@ void* customer (void* arg) {
 
         for(int i=0;i<(*orderSlot)->count && !expended; i++){
           // Compares each dish in the customer order with the menu dish indexed by the number taken from the waiter
-          if ((*orderSlot)->dishList[i].dish == &menu->dishes[in_dish] && (*orderSlot)->dishList[i].satisfied == false){
+          if ((*orderSlot)->dishList[i].dish->name == menu.dishes[in_dish].name && (*orderSlot)->dishList[i].satisfied == false){
             (*orderSlot)->dishList[i].satisfied = true;
             number_of_dishes_served++;
             expended = true;

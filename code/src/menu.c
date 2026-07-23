@@ -4,19 +4,18 @@
 #include <stdlib.h>
 #include <string.h>
 
-extern Menu *menu;
+extern Menu menu;
 
 int load_menu_from(const char *file_path, Kitchen *kitchen){
   FILE *menu_file = fopen(file_path, "r");
-
+  
   if(menu_file == NULL){
     fprintf(stderr, "Couldn't open file %s\n", file_path);
     return -1;
   }
 
   int dishCount = 0;
-  menu = malloc(sizeof(Menu));
-  menu->dishes = NULL;
+  menu.dishes = NULL;
 
   char line[256];
 
@@ -89,9 +88,9 @@ int load_menu_from(const char *file_path, Kitchen *kitchen){
     dish.requiredTypes = requiredTypes;
     dish.requiredSize = requiredSize;
 
-    menu->dishes = realloc(menu->dishes, sizeof(Dish)*(dishCount + 1));
-    menu->dishes[dishCount] = dish;
-    menu->dishCount = dishCount+1;
+    menu.dishes = realloc(menu.dishes, sizeof(Dish)*(dishCount + 1));
+    menu.dishes[dishCount] = dish;
+    menu.dishCount = dishCount+1;
 
     dishCount++;
   }
