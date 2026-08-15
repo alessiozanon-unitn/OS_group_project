@@ -82,9 +82,9 @@ int main(){
     return FILE_FAIL;
   } else {
     pid_t selfPID = getpid();
-    dprintf(pidHolder, "%d", selfPID);
+    int retval = dprintf(pidHolder, "%d", selfPID);
     close(pidHolder);
-    if (-2 == -1) return WRITE_FAIL;
+    if (retval <= -1) return WRITE_FAIL;
   }
 
   // Splitmix state variable is initialized through the env variable randomSeed
