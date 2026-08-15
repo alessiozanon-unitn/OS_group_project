@@ -37,16 +37,18 @@ void status(int signum) {
   int sent = 0;
   int disappointment = 0;
   int waiting = 0;
+  int dead = 0;
   for (int i = 0; i<totalCustomers; i++) {
     int current = atomic_load(customerStatuses[i]);
     if (current != UNSENT) {
       sent++;
       if (current == WAITING) waiting++;
       else if (current == UNSATISFIED) disappointment++;
+      else if (current == ERROR) dead++;
     }
   }
 
-  printf("Score:\t%d\nCurrent customers:\t%d\nUnsatisfied customers:\t%d\nProgress:\t%d/%d\n", atomic_load(&score), waiting, disappointment, customersSent, totalCustomers);
+  printf("Score:\t%d\nCurrent customers:\t%d\nUnsatisfied customers:\t%d\nErrored customers:\t%d\nProgress:\t%d/%d\n", atomic_load(&score), waiting, disappointment, dead, customersSent, totalCustomers);
   for (int i = 0; i<cookCount; i++) {
     printf("Cook%d's queue size:\t%d\n", i, atomic_load(busyTime[i]));
   }
