@@ -1,14 +1,14 @@
 #include "unity.h"
 #include <semaphore.h>
 #include <stdatomic.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <sys/types.h>
-#include "menu.h"
+#include <unistd.h>
 #include "kitchen.h"
+#include "restaurant.h"
 
 atomic_int score;
-Menu* menu;
+Menu menu;
 Kitchen* kitchen;
 
 // env variables
@@ -71,19 +71,19 @@ void test_menu_loading(){
 
   load_menu_from(menu_file, kitchen);
 
-  TEST_ASSERT_EQUAL_INT(3, menu->dishCount);
+  TEST_ASSERT_EQUAL_INT(3, menu.dishCount);
 
-  TEST_ASSERT_EQUAL_STRING("dish1", menu->dishes[0].name);
-  TEST_ASSERT_EQUAL_STRING("dish2", menu->dishes[1].name);
-  TEST_ASSERT_EQUAL_STRING("dish3", menu->dishes[2].name);
+  TEST_ASSERT_EQUAL_STRING("dish1", menu.dishes[0].name);
+  TEST_ASSERT_EQUAL_STRING("dish2", menu.dishes[1].name);
+  TEST_ASSERT_EQUAL_STRING("dish3", menu.dishes[2].name);
 
-  for(int i=0;i<menu->dishCount;i++){
-    TEST_ASSERT_EQUAL_INT(i+1, menu->dishes[i].price);
-    TEST_ASSERT_EQUAL_INT((i+1)*10, menu->dishes[i].time);
-    TEST_ASSERT_EQUAL_INT(i+1, menu->dishes[i].requiredSize);
-    for(int j=0;j<menu->dishes[i].requiredSize;j++){
-      TEST_ASSERT_EQUAL_INT(j+1, menu->dishes[i].requiredCount[j]);
-      TEST_ASSERT_EQUAL_INT(j, menu->dishes[i].requiredTypes[j]);
+  for(int i=0;i<menu.dishCount;i++){
+    TEST_ASSERT_EQUAL_INT(i+1, menu.dishes[i].price);
+    TEST_ASSERT_EQUAL_INT((i+1)*10, menu.dishes[i].time);
+    TEST_ASSERT_EQUAL_INT(i+1, menu.dishes[i].requiredSize);
+    for(int j=0;j<menu.dishes[i].requiredSize;j++){
+      TEST_ASSERT_EQUAL_INT(j+1, menu.dishes[i].requiredCount[j]);
+      TEST_ASSERT_EQUAL_INT(j, menu.dishes[i].requiredTypes[j]);
     }
   }
 }
@@ -91,5 +91,6 @@ int main(){
   UNITY_BEGIN();
   RUN_TEST(test_resources_loading);
   RUN_TEST(test_menu_loading);
+  //RUN_TEST(test_customer);
   return UNITY_END();
 }
