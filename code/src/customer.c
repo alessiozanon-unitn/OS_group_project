@@ -157,7 +157,7 @@ void* customer (void* arg) {
 
         for(int i=0;i<(*orderSlot)->count && !expended; i++){
           // Compares each dish in the customer order with the menu dish indexed by the number taken from the waiter
-          if (strcmp((*orderSlot)->dishList[i].dish->name, menu.dishes[in_dish].name) && (*orderSlot)->dishList[i].satisfied == false){
+          if (strcmp((*orderSlot)->dishList[i].dish->name, menu.dishes[in_dish].name) == 0 && (*orderSlot)->dishList[i].satisfied == false){
             (*orderSlot)->dishList[i].satisfied = true;
             number_of_dishes_served++;
             expended = true;
