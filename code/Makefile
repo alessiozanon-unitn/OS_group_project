@@ -1,6 +1,8 @@
 FLAGS = -pthread -lm -lc
 COMMON_OBJ = obj/cook.o obj/customer.o obj/waiter.o obj/menu.o obj/kitchen.o obj/splitmix64.o obj/xoshiro256plusplus.o obj/utils.o
 
+.PHONY: test
+
 build: $(COMMON_OBJ) obj/restaurant.o
 	gcc -o restaurant obj/restaurant.o $(COMMON_OBJ) $(FLAGS)
 
@@ -19,14 +21,14 @@ test: $(COMMON_OBJ) obj/unity.o obj/test.o
 gdb: clean src/restaurant.c src/cook.c src/customer.c src/waiter.c src/menu.c src/kitchen.c src/utils.c src/splitmix64.c src/xoshiro256plusplus.c
 	gcc -c $(FLAGS) -g src/restaurant.c -o obj/restaurant.o
 	gcc -c $(FLAGS) -g src/cook.c -o obj/cook.o
-	gcc -c $(FLAGS) -g src/customer.c -o obj/customer.o 
+	gcc -c $(FLAGS) -g src/customer.c -o obj/customer.o
 	gcc -c $(FLAGS) -g src/waiter.c -o obj/waiter.o
-	gcc -c $(FLAGS) -g src/menu.c -o obj/menu.o 
-	gcc -c $(FLAGS) -g src/kitchen.c -o obj/kitchen.o 
-	gcc -c $(FLAGS) -g src/utils.c -o obj/utils.o 
-	gcc -c $(FLAGS) -g src/splitmix64.c -o obj/splitmix64.o 
+	gcc -c $(FLAGS) -g src/menu.c -o obj/menu.o
+	gcc -c $(FLAGS) -g src/kitchen.c -o obj/kitchen.o
+	gcc -c $(FLAGS) -g src/utils.c -o obj/utils.o
+	gcc -c $(FLAGS) -g src/splitmix64.c -o obj/splitmix64.o
 	gcc -c $(FLAGS) -g src/xoshiro256plusplus.c -o obj/xoshiro256plusplus.o
-	gcc -o $(FLAGS) -g obj/restaurant.o $(COMMON_OBJ) -o restaurant	
+	gcc -o $(FLAGS) -g obj/restaurant.o $(COMMON_OBJ) -o restaurant
 	gdb restaurant
 
 obj/restaurant.o: src/restaurant.c

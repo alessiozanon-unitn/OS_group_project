@@ -39,7 +39,7 @@ void customerStop (ErrorVals errornumber) {
   free(*orderSlot);
   *orderSlot = NULL;
   sem_post(slotMut);
-  
+
   pthread_exit((void*) errornumber);
 }
 
@@ -75,7 +75,7 @@ void* customer (void* arg) {
 
   // Generate random dish dynamic array
   int length = (next(s) % max_dishes_per_order) + 1;
-  
+
   OrderNode *dishList = malloc(sizeof(OrderNode)*length);
   if (dishList == NULL && errno == ENOMEM) customerStop(MALLOC_FAIL);
 
@@ -113,9 +113,9 @@ void* customer (void* arg) {
   do {
     writeret = write(txArrival, &tableNumber, sizeof(int));
     if (writeret == -1 && errno != EINTR) customerStop(WRITE_FAIL);
-  } while (writeret != 0);
+  } while (writeret == -1);
 
-  //Officially ready to wait 
+  //Officially ready to wait
   atomic_store(myStatus, WAITING);
 
   // Customer loop
@@ -145,7 +145,7 @@ void* customer (void* arg) {
 
     //Checks for incoming dishes
     int in_dish;
-    ssize_t r; 
+    ssize_t r;
     do {
       r = read(rxServing, &in_dish, sizeof(int));
       if (r == -1 && errno != EAGAIN) customerStop(READ_FAIL);
@@ -156,7 +156,7 @@ void* customer (void* arg) {
           semret = sem_wait(slotMut);
           if (semret == -1 && errno != EINTR) customerStop(SEMAPHORE_FAIL);
         } while (semret != 0);
-      
+
         bool expended = false;
 
         for(int i=0;i<(*orderSlot)->count && !expended; i++){
@@ -202,9 +202,9 @@ void* customer (void* arg) {
   free(dishList);
   free (*orderSlot);
   *orderSlot = NULL;
-  
+
   sem_post(slotMut);
-  
+
   if (all_satisfied) atomic_store(myStatus, SATISFIED);
   else atomic_store(myStatus, UNSATISFIED);
 
