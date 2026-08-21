@@ -3,6 +3,7 @@
 #include <semaphore.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include "menu.h"
@@ -21,11 +22,7 @@ extern Menu menu;
 extern atomic_int score;
 extern double gameSpeed;
 
-sem_t* slotMut; //Allows the thread-exiting function to do so cleanly and gracefully
-Order** orderSlot;
-atomic_int* myStatus;
-
-void customerStop (ErrorVals errornumber) {
+void customerStop (ErrorVals errornumber, sem_t *slotMut, Order **orderSlot, atomic_int *myStatus) {
   atomic_store(myStatus, ERROR);
   perror("Customer runtime error");
   int semret = 0;
@@ -35,7 +32,7 @@ void customerStop (ErrorVals errornumber) {
       perror("Customer can't access their slot mut");
       pthread_exit((void*) SEMAPHORE_FAIL);
     }
-  } while (semret = 0);
+  } while (semret != 0);
   free(*orderSlot);
   *orderSlot = NULL;
   sem_post(slotMut);
@@ -51,18 +48,17 @@ void* customer (void* arg) {
   int time_to_serve = 0; // Cyclicly updated by the customer (waiting time)
   int number_of_dishes_served = 0;
 
-
   //Loads args
   CustomerArg* args = (CustomerArg *) arg;
 
-  orderSlot = (Order **) args->orderSlot;
-  slotMut = (sem_t *) args->slotMut;
+  Order** orderSlot = (Order **) args->orderSlot;
+  sem_t *slotMut = (sem_t *) args->slotMut;
   int rxServing = (int) args->rxServing;
   int tableNumber = (int) args->tableNumber;
   int txArrival = (int) args->txArrival;
   int max_dishes_per_order = (int) args->max_dishes_per_order;
   int patience_level_range = (int) args->patience_level_range;
-  myStatus = args->status;
+  atomic_int *myStatus = args->status;
   // xoshiro's generator thread-local state loaded from the main thread
   uint64_t s[4];
   s[0] = args->seed[0];
@@ -77,7 +73,7 @@ void* customer (void* arg) {
   int length = (next(s) % max_dishes_per_order) + 1;
 
   OrderNode *dishList = malloc(sizeof(OrderNode)*length);
-  if (dishList == NULL && errno == ENOMEM) customerStop(MALLOC_FAIL);
+  if (dishList == NULL) customerStop(MALLOC_FAIL, slotMut, orderSlot, myStatus);
 
   for(int i=0;i<length;i++){
     int dishIndex = next(s) % menu.dishCount;
@@ -91,7 +87,7 @@ void* customer (void* arg) {
 
   // Generates random order
   Order* order = malloc(sizeof(Order));
-  if (order == NULL) customerStop(MALLOC_FAIL);
+  if (order == NULL) customerStop(MALLOC_FAIL, slotMut, orderSlot, myStatus);
   order->patienceLevel = patienceFloor + (next(s) % patience_level_range);
   atomic_store(&order->arrivalTime, time(NULL));
   order->count = length;
@@ -101,7 +97,7 @@ void* customer (void* arg) {
   int semret = 0;
   do {
     semret = sem_wait(slotMut);
-    if (semret == -1 && errno != EINTR) customerStop(SEMAPHORE_FAIL);
+    if (semret == -1 && errno != EINTR) customerStop(SEMAPHORE_FAIL, slotMut, orderSlot, myStatus);
   } while (semret != 0);
 
   *orderSlot = order;
@@ -112,7 +108,7 @@ void* customer (void* arg) {
   int writeret = 0;
   do {
     writeret = write(txArrival, &tableNumber, sizeof(int));
-    if (writeret == -1 && errno != EINTR) customerStop(WRITE_FAIL);
+    if (writeret == -1 && errno != EINTR) customerStop(WRITE_FAIL, slotMut, orderSlot, myStatus);
   } while (writeret == -1);
 
   //Officially ready to wait
@@ -127,7 +123,7 @@ void* customer (void* arg) {
     int semret = 0;
     do {
       semret = sem_wait(slotMut);
-      if (semret == -1 && errno != EINTR) customerStop(SEMAPHORE_FAIL);
+      if (semret == -1 && errno != EINTR) customerStop(SEMAPHORE_FAIL, slotMut, orderSlot, myStatus);
     } while (semret != 0);
 
     bool out_of_patience = (*orderSlot)->patienceLevel <= time_to_serve;
@@ -148,20 +144,20 @@ void* customer (void* arg) {
     ssize_t r;
     do {
       r = read(rxServing, &in_dish, sizeof(int));
-      if (r == -1 && errno != EAGAIN) customerStop(READ_FAIL);
+      if (r == -1 && errno != EAGAIN) customerStop(READ_FAIL, slotMut, orderSlot, myStatus);
 
       if(r > 0){
         int semret = 0;
         do {
           semret = sem_wait(slotMut);
-          if (semret == -1 && errno != EINTR) customerStop(SEMAPHORE_FAIL);
+          if (semret == -1 && errno != EINTR) customerStop(SEMAPHORE_FAIL, slotMut, orderSlot, myStatus);
         } while (semret != 0);
 
         bool expended = false;
 
         for(int i=0;i<(*orderSlot)->count && !expended; i++){
           // Compares each dish in the customer order with the menu dish indexed by the number taken from the waiter
-          if ((*orderSlot)->dishList[i].dish->name == menu.dishes[in_dish].name && (*orderSlot)->dishList[i].satisfied == false){
+          if (strcmp((*orderSlot)->dishList[i].dish->name, menu.dishes[in_dish].name) && (*orderSlot)->dishList[i].satisfied == false){
             (*orderSlot)->dishList[i].satisfied = true;
             number_of_dishes_served++;
             expended = true;
@@ -174,7 +170,7 @@ void* customer (void* arg) {
     // Decrements patience
     do {
       semret = sem_wait(slotMut);
-      if (semret == -1 && errno != EINTR) customerStop(SEMAPHORE_FAIL);
+      if (semret == -1 && errno != EINTR) customerStop(SEMAPHORE_FAIL, slotMut, orderSlot, myStatus);
     } while (semret != 0);
     atomic_fetch_sub(&(*orderSlot)->patienceLevel, 1);
     sem_post(slotMut);
@@ -189,7 +185,7 @@ void* customer (void* arg) {
   // Changes global score
   do {
     semret = sem_wait(slotMut);
-    if (semret == -1 && errno != EINTR) customerStop(SEMAPHORE_FAIL);
+    if (semret == -1 && errno != EINTR) customerStop(SEMAPHORE_FAIL, slotMut, orderSlot, myStatus);
   } while (semret != 0);
 
   if(all_satisfied){ // If every order was satisfied
