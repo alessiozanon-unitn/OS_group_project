@@ -20,7 +20,7 @@ IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE. */
 
 #include <stdint.h>
 
-static uint64_t x_splitmix64;
+extern uint64_t x_splitmix64;
 
 uint64_t next_splitmix64();
 

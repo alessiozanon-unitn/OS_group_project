@@ -24,7 +24,7 @@ IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE. */
    It is a very fast generator passing BigCrush, and it can be useful if
    for some reason you absolutely want 64 bits of state. */
 
-static uint64_t x_splitmix64; /* The state can be seeded with any value. */
+uint64_t x_splitmix64; /* The state can be seeded with any value. */
 
 uint64_t next_splitmix64() {
 	uint64_t z = (x_splitmix64 += 0x9e3779b97f4a7c15);
