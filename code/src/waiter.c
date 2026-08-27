@@ -26,8 +26,8 @@ const int MAXSUCCESS = 60;       //How much a success can contribute at most (pa
 const int MINCFAIL = 15;         //How much a critical fail can detract at least (positive)
 const int MAXCFAIL = 60;         //How much a critical fail can detract at most (positive)
 
-Order*** orderTable; //Must be global because qsort_r is a feature test macro, thus not as portable as required
-atomic_time** arrivalTimeMatcher; //Used to make sure the client hasn't left and been replaced
+_Thread_local Order*** orderTable; //Must be global because qsort_r is a feature test macro, thus not as portable as required
+_Thread_local atomic_time** arrivalTimeMatcher; //Used to make sure the client hasn't left and been replaced
 
 void waiterStop(ErrorVals errornumber) {
   perror("Waiter runtime error");
@@ -47,9 +47,9 @@ void waiterSleep(int sleepTime) {
 }
 
 int compDishes(const void* x, const void* y) {
-  Dish* a = (Dish*)x;
-  Dish* b = (Dish*)y;
-  if (a->time != b-> time) return a->time - b->time; //Faster dishes are better, as they contribute to score loss equally
+    Dish* a = *(Dish**)x;
+    Dish* b = *(Dish**)y;
+    if (a->time != b-> time) return a->time - b->time; //Faster dishes are better, as they contribute to score loss equally
   return b->price - a->price; //More expensive plates have priority
 }
 
