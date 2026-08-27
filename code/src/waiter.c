@@ -5,6 +5,7 @@
 
 #include "xoshiro256plusplus.h"
 
+#include <stdbool.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <math.h>
@@ -110,6 +111,8 @@ void rmReceipt(dishReceipt* queue, int index) {
 
 void* waiter(void* arg) {
 
+  waiterSleep(10);
+
   WaiterArg* args = (WaiterArg*) arg;
 
   atomic_bool* runFlag = args->run;
@@ -153,24 +156,33 @@ void* waiter(void* arg) {
     } while (readret > 0);
 
     if (newCount != 0) {
+      int dedupedCount = 0;
+      for (int i = 0; i<newCount; i++) {
+        bool seenLater = false;
+        for (int j = i+1; j<newCount && !seenLater; j++) {
+          if (newClients[j] == newClients[i]) seenLater = true;
+        }
+        if (!seenLater) newClients[dedupedCount++] = newClients[i];
+      }
+      newCount = dedupedCount;
+
       for (int i = 0; i<newCount; i++) {
         int semret = 0;
         do {
-          semret = sem_wait(orderTableMuts[newClients[i]]); //Must make sure no one is messing with the order memory (like freeing) while reading
+          semret = sem_wait(orderTableMuts[newClients[i]]);
           if (semret == -1 && errno != EINTR) waiterStop(SEMAPHORE_FAIL);
         } while (semret != 0);
       }
-
       //Prioritize the customers with the lowest patience level (by sorting the array)
       qsort(newClients, newCount, sizeof(int), compClients);
-
       int offset = 0;
       for (int i = 0; i<newCount; i++) { //Count the clients that left in the queue
-        if (*orderTable[newClients[i]] == NULL || (*orderTable[newClients[i]])->arrivalTime == atomic_load(arrivalTimeMatcher[newClients[i]])) offset++; //If the arrival time matches the last recorded, it means that a duplicate snuck through and it's discardable
+        if (*orderTable[newClients[i]] == NULL || (*orderTable[newClients[i]])->arrivalTime == atomic_load(arrivalTimeMatcher[newClients[i]])) {
+          offset++; //If the arrival time matches the last recorded, it means that a duplicate snuck through and it's discardable
+          sem_post(orderTableMuts[newClients[i]]); //Release its mutex now, it won't be touched by the code below
+        }
       }
-
       newCount -= offset; //Shorten the array "size" by that amount, since the leavers had been shoved right
-
       for (int i = 0; i<newCount; i++) {
         atomic_store(arrivalTimeMatcher[newClients[i]], (*orderTable[newClients[i]])->arrivalTime); //The new arrivals are accepted and their time stored
         localArrivalMatcher[newClients[i]] = (*orderTable[newClients[i]])->arrivalTime; //Local array is updated too
@@ -260,6 +272,7 @@ void* waiter(void* arg) {
             } while (writeret == -1);
 
               //Dish is now delivered;
+              deliveredFlag = true;
           }
           sem_post(orderTableMuts[currentCustomer]); //Nothing else to do on the orderTable for now
         }
