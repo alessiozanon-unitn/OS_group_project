@@ -1,10 +1,10 @@
 #ifndef ORDER
 #define ORDER
 
-#include "restaurant.h"
-#include "time.h"
 #include "menu.h"
 #include <stdatomic.h>
+#include <time.h>
+#include "utils.h"
 
 typedef struct OrderNode {
   Dish* dish;
@@ -13,7 +13,7 @@ typedef struct OrderNode {
 
 typedef struct Order {
   atomic_int patienceLevel; // Current patience level updated both by the customer and waiter
-  atomic_time arrivalTime;
+  time_t arrivalTime;
   int count; // number of dishes
   OrderNode* dishList; //Dynamic Array
 } Order;

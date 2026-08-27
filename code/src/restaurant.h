@@ -5,9 +5,7 @@
 #include "order.h"
 #include <stdint.h>
 #include <stdatomic.h>
-#include <time.h>
-
-typedef _Atomic(time_t) atomic_time;
+#include "utils.h"
 
 typedef struct CookArg {
   atomic_bool* run;
