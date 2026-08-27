@@ -113,7 +113,7 @@ bool cookDishDirty(Dish* dish, Kitchen* kitchen, atomic_int* busyTimePosition) {
     resourcesGotDirty[i] = 0;
     if (resourcesGotClean[i] < dish->requiredCount[i]) { //Only get dirty resources if clean ones are not enough
       Resource* currentResource = &kitchen->resources[dish->requiredTypes[i]];
-      for (int ii = resourcesGotClean[i]; ii<dish->requiredCount[i] && retval != 1; ii++) { //Try to take as many dirties as needed, by starting with clean amount accounted for
+      for (int ii = resourcesGotClean[i]; ii<dish->requiredCount[i] && retval != -1; ii++) { //Try to take as many dirties as needed, by starting with clean amount accounted for
         retval = sem_trywait(&currentResource->dirty);
         if (retval != -1) resourcesGotDirty[i]++;
       }
