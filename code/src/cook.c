@@ -399,10 +399,7 @@ void* cook(void* arg) {
       int receivedOrder[2] = {0, 0};
       readStatus = read(rxOrders, &receivedOrder, sizeof(receivedOrder));
       if (readStatus == -1 && errno != EAGAIN ) cookStop(READ_FAIL);
-      if (readStatus > 0) {
-        printf("Cook receved:\t%d\t%d\t%d\n", readStatus, receivedOrder[0], receivedOrder[1]);
-        addTask(&queue, receivedOrder[0], receivedOrder[1]);
-      }
+      if (readStatus > 0) addTask(&queue, receivedOrder[0], receivedOrder[1]);
     } while (readStatus > 0); //Get all waiting orders in pipe
 
     //Decision making starts
