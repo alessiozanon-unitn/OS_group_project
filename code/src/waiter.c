@@ -257,7 +257,7 @@ void* waiter(void* arg) {
             do {
               writeret = write(txServing[currentCustomer], &dishIndex, sizeof(dishIndex));
               if (writeret == -1 && errno != EINTR) waiterStop(WRITE_FAIL);
-            } while (writeret != 0);
+            } while (writeret == -1);
 
               //Dish is now delivered;
           }

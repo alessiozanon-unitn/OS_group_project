@@ -436,7 +436,7 @@ void* cook(void* arg) {
         do {
           retwrite = write(txDishes[queue.waiterIDs[taskIndex]], &queue.dishIndexes[taskIndex], sizeof(int)); //Signal the dish is ready
           if (retwrite == -1 && errno != EINTR) cookStop(WRITE_FAIL);
-        } while (retwrite != 0);
+        } while (retwrite == -1);
         rmTask(&queue, taskIndex); //Clear task from queue
       }
     } else if (queue.queueSize <= OVERWORK_THRESHOLD) {
@@ -465,7 +465,7 @@ void* cook(void* arg) {
           do {
             retwrite = write(txDishes[queue.waiterIDs[taskIndex]], &queue.dishIndexes[taskIndex], sizeof(int)); //Signal the dish is ready
             if (retwrite == -1 && errno != EINTR) cookStop(WRITE_FAIL);
-          } while (retwrite != 0);
+          } while (retwrite == -1);
 
           rmTask(&queue, taskIndex); //Clear task from queue
         }
