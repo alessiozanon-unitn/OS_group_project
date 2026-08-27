@@ -70,7 +70,7 @@ int main(){
   const uint maxCustomers = atoi(getenv("MAX_CUSTOMERS"));
   totalCustomers = atoi(getenv("TOTAL_CUSTOMERS"));
   const uint randomSeed = atoi(getenv("RANDOM_SEED"));
-  gameSpeed = atoi(getenv("GAME_SPEED"));
+  gameSpeed = atof(getenv("GAME_SPEED"));
   const char* menu_file = getenv("MENU_FILE");
   const char* resources_file = getenv("RESOURCES_FILE");
   const int max_dishes_per_order = atoi(getenv("MAX_DISHES_PER_ORDER"));
