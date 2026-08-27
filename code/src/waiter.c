@@ -58,8 +58,8 @@ int compClients(const void* x, const void*y) {
   int b = *(int*)y;
 
   if ((*(orderTable[a]) == NULL || (*orderTable[a])->arrivalTime == atomic_load(arrivalTimeMatcher[a])) && ((*orderTable[b]) == NULL || (*orderTable[b])->arrivalTime == atomic_load(arrivalTimeMatcher[b]))) return 0; //If both are null, doesn't matter
-  if (*(orderTable[a]) == NULL || (*orderTable[a])->arrivalTime == atomic_load(arrivalTimeMatcher[a])) return -1; //If client "a" left, client "b" has better priority
-  if (*(orderTable[b]) == NULL || (*orderTable[b])->arrivalTime == atomic_load(arrivalTimeMatcher[b])) return 1; //Effectively, I shunt leavers and duplicates to the right of the array
+  if (*(orderTable[a]) == NULL || (*orderTable[a])->arrivalTime == atomic_load(arrivalTimeMatcher[a])) return 1; //If client "a" left, client "b" has better priority
+  if (*(orderTable[b]) == NULL || (*orderTable[b])->arrivalTime == atomic_load(arrivalTimeMatcher[b])) return -1; //Effectively, I shunt leavers and duplicates to the right of the array
 
   //Both are here, no-problem comparison
   a = atomic_load(&(*orderTable[a])->patienceLevel);
@@ -166,7 +166,7 @@ void* waiter(void* arg) {
 
       int offset = 0;
       for (int i = 0; i<newCount; i++) { //Count the clients that left in the queue
-        if (*orderTable[newClients[i]] == NULL || (*orderTable[i])->arrivalTime == atomic_load(arrivalTimeMatcher[newClients[i]])) offset++; //If the arrival time matches the last recorded, it means that a duplicate snuck through and it's discardable
+        if (*orderTable[newClients[i]] == NULL || (*orderTable[newClients[i]])->arrivalTime == atomic_load(arrivalTimeMatcher[newClients[i]])) offset++; //If the arrival time matches the last recorded, it means that a duplicate snuck through and it's discardable
       }
 
       newCount -= offset; //Shorten the array "size" by that amount, since the leavers had been shoved right
@@ -215,7 +215,7 @@ void* waiter(void* arg) {
               currentVal = atomic_load(busyTime[ii]);
               if (currentVal < leastVal) {
                 leastBusyCook = ii;
-                currentVal = leastVal;
+                leastVal = currentVal;
               }
             }
 
