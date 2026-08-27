@@ -41,7 +41,9 @@ Customers repeatedly poll their order completion and wait time, and modify the R
 
 \section{Design Choices}
 \subsection{Randomization}
-//TODO LORENZO 
+The seed taken from .env is used by the Splitmix64 library to generate sub-seeds by Restaurant. A separate set of sub-seeds are given to thread, and are then used with a modified xoshiro256plusplus to generate random numbers in each predictably manner.
+This way, changing the seed parameter in .env allows for the powerful splitmix64 library to do the heavy lifting and introduce entropy in the sub-seeds, and the independence of the sub seeds removes the possibility of a race condition between value generations, keeping the simulation predictable.
+
 
 \subsection{Extra-thread Communication}
 Comunication among threads is handled in two ways: Shared Memory and one-way Pipes
@@ -50,8 +52,5 @@ Shared Memory is used for all data that might need to be read or modified multip
 
 When data instead was inteded as single-use, Pipes were chosen instead. Their main benefit was the inherent thread-safety and consistency they provide, as their operations are atomic (within the bounds of some sizeable bit amount) and the removal-on-read guarantees that even on -to-many pipes only one thread will read any one message.
 This way, the operating system shoulders the burden to guarantee that only one waiter attends any client, and that mutliple cook-to-waiter or waiter-to-cook messages don't collide and are instead resolved orderly by each thread.
-
-
-\subsection{Error Handling}
 
 \end{document}
