@@ -70,7 +70,7 @@ fi
 
 # Checks that the file is readable
 if [ ! -r "$file" ]; then
-    echo "-env is not readable"
+    echo ".env is not readable"
     exit 1
 fi
 
@@ -81,7 +81,7 @@ var_names_strings=("MENU_FILE" "RESOURCES_FILE")
 missing=()
 for var_name in "${var_names_numeric[@]}" "${var_names_strings[@]}"; do
     flag="false"
-    while IFS='=' read -r name value; do
+    while IFS='=' read -r name value || [ -n "$name" ]; do
         if [ "$name" = "$var_name" ]; then
             flag="true"
             break
@@ -100,7 +100,7 @@ if [ ! ${#missing[@]} -eq 0 ]; then
 fi
 
 # Checks the validity of numeric variables
-while IFS='=' read -r name value; do
+while IFS='=' read -r name value || [ -n "$name" ]; do
     for var_name in "${var_names_numeric[@]}"; do
         if [ "$var_name" = "$name" ]; then
             if ! [[ "$value" =~ ^[0-9]+$ ]]; then
@@ -114,7 +114,7 @@ done < "$file"
 
 
 # Checks if the file paths specified in the env variables exist
-while IFS='=' read -r name value; do
+while IFS='=' read -r name value || [ -n "$name" ]; do
     for var_name in "${var_names_strings[@]}"; do
         if [ "$var_name" = "$name" ]; then
             if [[ ! -f "$value" ]]; then
@@ -190,7 +190,7 @@ if [[ -v random_seed ]]; then
 fi
 if [[ -v max_dishes_per_order ]]; then
     if [[ "$max_dishes_per_order" =~ ^[0-9]+$ ]]; then
-        declare "RANDOM_SEED=$max_dishes_per_order"
+        declare "MAX_DISHES_PER_ORDER=$max_dishes_per_order"
     else
         echo "Custom max_dishes_per_order not a valid number, ignoring it"
     fi

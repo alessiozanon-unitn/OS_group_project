@@ -1,6 +1,7 @@
 #include <math.h>
 #include <pthread.h>
 #include <semaphore.h>
+#include <stdatomic.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -191,7 +192,7 @@ void* customer (void* arg) {
   if(all_satisfied){ // If every order was satisfied
     atomic_fetch_add(&score, lround(total_price * (1.0 - ((double) time_to_serve/(double)(*orderSlot)->patienceLevel))));
   }else{ // If patience ran out
-    atomic_fetch_add(&score, lround(total_price * log2(1 + ((double) (*orderSlot)->patienceLevel / (1 + number_of_dishes_served)))));
+    atomic_fetch_sub(&score, lround(total_price * log2(1 + ((double) (*orderSlot)->patienceLevel / (1 + number_of_dishes_served)))));
   }
 
   // Exits
