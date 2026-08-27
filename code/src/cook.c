@@ -40,7 +40,7 @@ bool cookDish(Dish* dish, Kitchen* kitchen, atomic_int* busyTimePosition) {
   //grab semaphore resources and do the deed
   //Increase dirty counter and insert new 1s in the array
   //Return true if cooking happened, false otherwise
-  
+
   int resourcesGot[dish->requiredSize];
   int retval = 0;
 
@@ -51,7 +51,7 @@ bool cookDish(Dish* dish, Kitchen* kitchen, atomic_int* busyTimePosition) {
       if (retval != -1) resourcesGot[i]++; //If clean gotten successfully update counter
     }
   }
-  if (retval != -1) {//If all resources aquired, can cook 
+  if (retval != -1) {//If all resources aquired, can cook
     // Cook
     cookSleep(dish->time, busyTimePosition);
 
@@ -64,7 +64,7 @@ bool cookDish(Dish* dish, Kitchen* kitchen, atomic_int* busyTimePosition) {
       int semval = 0;
       do {
         semval = sem_wait(&currentResource->dirtyCountersMutex); //Must block to update array
-        if (semval == -1 && errno != EINTR) cookStop(SEMAPHORE_FAIL); //A signal can interrupt a wait 
+        if (semval == -1 && errno != EINTR) cookStop(SEMAPHORE_FAIL); //A signal can interrupt a wait
       } while (semval != 0);
       for (int ii = currentResource->dirtyDishesCount-1; ii>=0; ii--) { //Shift all array contents right by the new dishes to add
         currentResource->dirtyResourceCounters[ii+resourcesGot[i]] = currentResource->dirtyResourceCounters[ii];
@@ -94,7 +94,7 @@ bool cookDishDirty(Dish* dish, Kitchen* kitchen, atomic_int* busyTimePosition) {
   int resourcesGotDirty[dish->requiredSize];
   int* dirtyTracker[dish->requiredSize];
   int retval = 0;
-  
+
   for (int i = 0; i<dish->requiredSize; i++) { //Make sure to initialize all these pointers to NULL for later
     dirtyTracker[i] = NULL;
   }
@@ -118,15 +118,15 @@ bool cookDishDirty(Dish* dish, Kitchen* kitchen, atomic_int* busyTimePosition) {
         if (retval != -1) resourcesGotDirty[i]++;
       }
       if (retval != -1) { //Only worth doing this if all resources necessary are aquired
-       int semret = 0; 
-       do { 
+       int semret = 0;
+       do {
           semret = sem_wait(&currentResource->dirtyCountersMutex); //Must block if waiting
           if (semret == -1 && errno != EINTR) cookStop(SEMAPHORE_FAIL);
         } while (semret != 0);
         dirtyTracker[i] = malloc(sizeof(int)*resourcesGotDirty[i]); //Initialize dynamic arrays to track the individual dirty plates
         if (dirtyTracker[i] == NULL && resourcesGotDirty[i] != 0) cookStop(MALLOC_FAIL);
 
-        for (int ii = 0; ii<resourcesGotDirty[i]; ii++) {//Move values into local tracker array, removing them from the shared one 
+        for (int ii = 0; ii<resourcesGotDirty[i]; ii++) {//Move values into local tracker array, removing them from the shared one
           dirtyTracker[i][ii] = currentResource->dirtyResourceCounters[ii]; //We know that the leftmost values are the least, so we save them
           currentResource->dirtyResourceCounters[ii] = 0; //We empty the values moved, in case there aren't enough to the right to overwrite them
         }
@@ -146,12 +146,12 @@ bool cookDishDirty(Dish* dish, Kitchen* kitchen, atomic_int* busyTimePosition) {
     cookSleep(dish->time, busyTimePosition);
 
     //Finished cooking
-    
+
     //subtract score for dirty resources
     double acc = 0.0f; //Accumulator
     for (int i = 0; i<dish->requiredSize; i++) {
-      for (int ii = 0; ii = resourcesGotDirty[i]; ii++) {
-        acc += pow(2, (double)dirtyTracker[i][ii]) * log2((double)(1+ kitchen->resources[dish->requiredTypes[i]].clean_time)); 
+      for (int ii = 0; ii < resourcesGotDirty[i]; ii++) {
+        acc += pow(2, (double)dirtyTracker[i][ii]) * log2((double)(1+ kitchen->resources[dish->requiredTypes[i]].clean_time));
       }
     }
     atomic_fetch_sub(&score, round(acc));
@@ -164,11 +164,11 @@ bool cookDishDirty(Dish* dish, Kitchen* kitchen, atomic_int* busyTimePosition) {
         for (int ii = 0; ii<resourcesGotDirty[i]; ii++) {
           dirtyTracker[i][ii]++;
         }
-        
+
         int semret = 0;
         do {
           semret = sem_wait(&currentResource->dirtyCountersMutex);
-          if (semret == -1 && errno != EINTR) cookStop(SEMAPHORE_FAIL);  
+          if (semret == -1 && errno != EINTR) cookStop(SEMAPHORE_FAIL);
         } while (semret != 0);
 
         for (int ii = currentResource->dirtyDishesCount-1; ii>=0; ii--) {//Move all tracked resources left
@@ -199,7 +199,7 @@ bool cookDishDirty(Dish* dish, Kitchen* kitchen, atomic_int* busyTimePosition) {
       for (int ii = 0; ii<resourcesGotClean[i]; ii++) { //Signal as many as were acquired
         sem_post(&currentResource->dirty); //Signal the dirty instead of clean
       }
-      
+
       int semret = 0;
       do {
         semret = sem_wait(&currentResource->dirtyCountersMutex); //Must block to update array
@@ -215,7 +215,7 @@ bool cookDishDirty(Dish* dish, Kitchen* kitchen, atomic_int* busyTimePosition) {
       currentResource->dirtyDishesCount += resourcesGotClean[i]; //Update counter
       sem_post(&currentResource->dirtyCountersMutex);
     }
-    
+
     for (int i = 0; i<dish->requiredSize; i++) {
       free(dirtyTracker[i]);
     }
@@ -231,7 +231,7 @@ bool cookDishDirty(Dish* dish, Kitchen* kitchen, atomic_int* busyTimePosition) {
     for (int i = 0; i<dish->requiredSize; i++){
       Resource* currentResource = &kitchen->resources[dish->requiredTypes[i]];
       if (dirtyTracker[i] != NULL || resourcesGotDirty[i] == 0) { //If no dish was tracked, no need to bother
-        
+
         int semret = 0;
         do {
           semret = sem_wait(&currentResource->dirtyCountersMutex);
@@ -262,7 +262,7 @@ bool cookDishDirty(Dish* dish, Kitchen* kitchen, atomic_int* busyTimePosition) {
         }
       }
     }
-    
+
     for (int i = 0; i<dish->requiredSize; i++) {
       free(dirtyTracker[i]);
     }
@@ -277,14 +277,14 @@ void cleanResource(Kitchen* kitchen, atomic_int* busyTimePosition) {
   //Among them, find the one with the least dirty units
   //Clean the resource
   //If sink is busy
-  
+
   //Initialize a default value
   Resource* toClean = &kitchen->resources[0];
   int cleanCount;
   sem_getvalue(&toClean->clean, &cleanCount);
   int dirtyCount;
   sem_getvalue(&toClean->dirty, &dirtyCount);
-  
+
   //Iterate over all others
   for(int i = 1; i<kitchen->resourceCount; i++) {
     Resource* maybeClean = &kitchen->resources[i];
@@ -293,7 +293,7 @@ void cleanResource(Kitchen* kitchen, atomic_int* busyTimePosition) {
     sem_getvalue(&maybeClean->dirty, &temp2);
     if (
       temp2 != 0 && ( //Candidate resource has something to clean
-        dirtyCount == 0 || ( //Current defualt-ish resource has nothing to clean  
+        dirtyCount == 0 || ( //Current defualt-ish resource has nothing to clean
           temp1<cleanCount || ( //The candidate resource has less clean units
             temp1==cleanCount && temp2<dirtyCount //Candidate resource tie-breaks with dirty units
           )
@@ -314,15 +314,15 @@ void cleanResource(Kitchen* kitchen, atomic_int* busyTimePosition) {
     if (retval != -1){
 
       //Clean
-      atomic_fetch_add(&toClean->clean_time, busyTimePosition);
+      atomic_fetch_add(busyTimePosition, toClean->clean_time);
       cookSleep(toClean->clean_time, busyTimePosition);
-      
+
       //Cleaning finished
       int semret = 0;
       do {
         semret = sem_wait(&toClean->dirtyCountersMutex); //Must block if busy, but usually operations are fast
         if (semret == -1 && errno != EINTR) cookStop(SEMAPHORE_FAIL);
-      } while (semret != 0); 
+      } while (semret != 0);
       toClean->dirtyDishesCount--; //Reduce count, turning it into the index of the rightmost dirty dish
       toClean->dirtyResourceCounters[toClean->dirtyDishesCount] = 0; //Void the value
       sem_post(&toClean->dirtyCountersMutex); //Release block for others
@@ -344,7 +344,7 @@ void addTask(Queue* queue, int dish, int waiter) {
   if (queue->queueSize == 0) {
     queue->dishIndexes = malloc(sizeof(int));
     queue->waiterIDs = malloc(sizeof(int));
-  } else if ((queue->queueSize & (queue->queueSize -1)) == 0) { //Test if queueSize is a power of two, if so then expand array 
+  } else if ((queue->queueSize & (queue->queueSize -1)) == 0) { //Test if queueSize is a power of two, if so then expand array
     queue->dishIndexes = realloc(queue->dishIndexes, sizeof(int)*2*queue->queueSize);
     queue->waiterIDs = realloc(queue->waiterIDs, sizeof(int)*2*queue->queueSize);
   }
@@ -356,7 +356,7 @@ void addTask(Queue* queue, int dish, int waiter) {
 
 void rmTask(Queue* queue, int index) {
   if (queue == NULL) return;
-  
+
   if (index < 0) return; //Not valid index
   if (queue->queueSize <= index) return; //Not valid index
   queue->queueSize--; //queueSize is now the index of the last valid value
@@ -367,13 +367,13 @@ void rmTask(Queue* queue, int index) {
     queue->waiterIDs = NULL;
     return;
   }
-  
+
   for (int i = index; i<queue->queueSize; i++) { //Move all the elements after index left
     queue->dishIndexes[i] = queue->dishIndexes[i+1];
     queue->waiterIDs[i] = queue->waiterIDs[i+1];
   }
 
-  if ((queue->queueSize & (queue->queueSize-1)) == 0) { //If queueSize is a power of two, half of the array is empty 
+  if ((queue->queueSize & (queue->queueSize-1)) == 0) { //If queueSize is a power of two, half of the array is empty
     queue->dishIndexes = realloc(queue->dishIndexes, sizeof(int)*queue->queueSize);
     queue->waiterIDs = realloc(queue->waiterIDs, sizeof(int)*queue->queueSize);
     if ((queue->dishIndexes == NULL || queue->waiterIDs == NULL) && errno == ENOMEM) cookStop(MALLOC_FAIL);
@@ -390,7 +390,7 @@ void* cook(void* arg) {
   atomic_int* busyTime = initData->busyTime;
 
   free(initData);
-  
+
   Queue queue = (Queue){.queueSize = 0, .dishIndexes = NULL, .waiterIDs = NULL};
 
   while (atomic_load(runFlag)) {
@@ -398,10 +398,10 @@ void* cook(void* arg) {
     do {
       int receivedOrder[2] = {0, 0};
       readStatus = read(rxOrders, &receivedOrder, sizeof(receivedOrder));//TODO make sure this works
-      if (readStatus == -1 && errno != EAGAIN ) cookStop(READ_FAIL); 
+      if (readStatus == -1 && errno != EAGAIN ) cookStop(READ_FAIL);
       if (readStatus != -1) addTask(&queue, receivedOrder[0], receivedOrder[1]);
     } while (readStatus != -1); //Get all waiting orders in pipe
-    
+
     //Decision making starts
     bool foundTask = false;
     Dish* toDoDish;
@@ -413,9 +413,9 @@ void* cook(void* arg) {
       bool allAvailable = true;
       toDoDish = &menu.dishes[queue.dishIndexes[i]];
       taskIndex = i;
-      
+
       //Iterate over all resources required by the dish
-      for (int ii = 0; ii<toDoDish->requiredSize && allAvailable; i++) {
+      for (int ii = 0; ii<toDoDish->requiredSize && allAvailable; ii++) {
         //Compare the clean dishes to the required amount of dishes
         int cleanCount;
         sem_getvalue(&resources[toDoDish->requiredTypes[ii]].clean, &cleanCount);
@@ -429,7 +429,7 @@ void* cook(void* arg) {
       bool result = cookDish(toDoDish, kitchen, busyTime);
       if(result) {//Cooking worked
         int retwrite = 0;
-        
+
         do {
           retwrite = write(txDishes[queue.waiterIDs[taskIndex]], &queue.dishIndexes[taskIndex], sizeof(int)); //Signal the dish is ready
           if (retwrite == -1 && errno != EINTR) cookStop(WRITE_FAIL);
@@ -437,7 +437,7 @@ void* cook(void* arg) {
         rmTask(&queue, taskIndex); //Clear task from queue
       }
     } else if (queue.queueSize <= OVERWORK_THRESHOLD) {
-      cleanResource(kitchen, busyTime);  
+      cleanResource(kitchen, busyTime);
     } else {
       //Do the first possible dish, as most likely to be urgent
       for (int i = 0; i<queue.queueSize && !foundTask; i++) {
@@ -445,7 +445,7 @@ void* cook(void* arg) {
         toDoDish = &menu.dishes[queue.dishIndexes[i]];
         taskIndex = i;
         //Iterate over all resources required by the dish
-        for (int ii = 0; ii<toDoDish->requiredSize && allAvailable; i++) {
+        for (int ii = 0; ii<toDoDish->requiredSize && allAvailable; ii++) {
           //Compare the clean dishes to the required amount of dishes
           int cleanCount;
           int dirtyCount;
@@ -471,10 +471,10 @@ void* cook(void* arg) {
       }
     }
   }
-  
+
   while (0<queue.queueSize) {
     rmTask(&queue, 0);
   }
-  
+
   pthread_exit(ALL_OK);
-}; 
+};
