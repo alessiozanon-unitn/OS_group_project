@@ -26,7 +26,6 @@ atomic_int score;
 double gameSpeed;
 
 //Globals to allow access by signal handler
-int customersSent = 0;
 int totalCustomers = 0;
 uint cookCount;
 atomic_int** busyTime;
@@ -48,7 +47,7 @@ void status(int signum) {
     }
   }
 
-  printf("Score:\t%d\nCurrent customers:\t%d\nUnsatisfied customers:\t%d\nErrored customers:\t%d\nProgress:\t%d/%d\n", atomic_load(&score), waiting, disappointment, dead, customersSent, totalCustomers);
+  printf("Score:\t%d\nCurrent customers:\t%d\nUnsatisfied customers:\t%d\nErrored customers:\t%d\nProgress:\t%d/%d\n", atomic_load(&score), waiting, disappointment, dead, sent, totalCustomers);
   for (int i = 0; i<cookCount; i++) {
     printf("Cook%d's queue size:\t%d\n", i, atomic_load(busyTime[i]));
   }
@@ -221,7 +220,7 @@ int main(){
     if (busyTime[i] == NULL) {
       perror("Could not generate busyTime element");
       return MALLOC_FAIL;
-    } else atomic_store(busyTime[i], 0);
+    } else atomic_init(busyTime[i], 0); 
   }
 
   Order*** orderTable = calloc(maxCustomers, sizeof(Order**));
@@ -321,7 +320,7 @@ int main(){
     waiterArgs[i]->txServing = servingSenders;
   }
 
-  //Start cooksi
+  //Start cooks
   for (int i = 0; i<cookCount; i++) {
     if(pthread_create(&Cooks[i], NULL, cook, (void*) cookArgs[i]) != 0){
       perror("Could not create cook thread");
@@ -338,7 +337,7 @@ int main(){
   }
 
   // Customers
-  customersSent = 0;
+  int customersSent = 0;
 
   //Attach signal handler and enable SIGUSR1
   if (sigaction(SIGUSR1, &act, NULL) != 0) {
@@ -400,8 +399,9 @@ int main(){
       }
       if (currentActives[i] != -1) deployedCustomers++; //Count the current customers in the restaurant
     }
-
-    printf("Score:\t%d\nCustomer progress:\t%d\t%f%%\n\n\n", atomic_load(&score), deployedCustomers, (double)deployedCustomers/totalCustomers);
+    
+    status(0);
+    printf("Score:\t%d\nDeployed Customers:\t%d\nCustomer progress:\t%d\t%f%%\n\n\n", atomic_load(&score), deployedCustomers, customersSent,(double)customersSent/totalCustomers)*100.0;
     for (int i = 0; i<SLEEP_MULT; i++) custom_sleep();
   }
 
