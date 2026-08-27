@@ -221,7 +221,7 @@ void* waiter(void* arg) {
 
             int sendOrder[2] = {dishMap[i], ID}; //Create the dish package
             addReceipt(&receipts[dishMap[i]], newClient); //Add the client to the receipts of the dish
-            atomic_fetch_add(&busyTime[leastBusyCook], dishes[i]->time); //Increment the amount of time the cook is going to be busy
+            atomic_fetch_add(busyTime[leastBusyCook], dishes[i]->time); //Increment the amount of time the cook is going to be busy
 
             int retwrite = 0;
             do {
