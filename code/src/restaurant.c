@@ -412,6 +412,8 @@ int main(){
     pthread_join(Customers[i], &return_value);
     returnCustomers[i] = (int)(intptr_t) return_value;
   }
+  
+  //Now that the clients are joined we know for sure the restaurant can close down
 
   int returnCooks[cookCount];
   //Joins cooks
@@ -430,6 +432,44 @@ int main(){
     pthread_join(Waiters[i], &return_value);
     returnWaiters[i] = (int)(intptr_t) return_value;
   }
+
+  //Now that the threads are over, close all outstating allocations
+  for(int i=0; i<cookCount; i++) {
+    free(cookRun[i]);
+    close(ordersPipes[i][1]);
+    close(ordersPipes[i][0]);
+    free(busyTime[i]);
+  }
+  free(cookRun);
+  free(busyTime);
+  
+  for(int i = 0; i<waiterCount; i++) {
+    free(waiterRun[i]);
+    close(dishesPipes[i][1]);
+    close(dishesPipes[i][0]);
+
+  }
+  free(waiterRun);
+  
+  for(int i = 0; i<maxCustomers; i++) {
+    close(servingPipes[i][1]);
+    close(servingPipes[i][0]);
+    free(*(orderTable[i]);
+    free(orderTable[i]);
+    free(orderTableMuts[i]);
+    free(arrivalTimeMatcher[i]);
+  }
+  free(orderTable);
+  free(orderTableMuts);
+  free(arrivalTimeMatcher);
+
+  for(int i = 0; i<totalCustomers; i++) {
+    free(customerStatuses[i]);
+  }
+  free(customerStatuses);
+
+  close(arrivalPipe[1]);
+  close(arrivalPipe[0]);
 
   remove("/tmp/restaurant.pid"); //Remove PID file
 
