@@ -89,7 +89,7 @@ void* customer (void* arg) {
   // Generates random order
   Order* order = malloc(sizeof(Order));
   if (order == NULL) customerStop(MALLOC_FAIL, slotMut, orderSlot, myStatus);
-  order->patienceLevel = patienceFloor + (next(s) % patience_level_range);
+  order->patienceLevel = patienceFloor + 1 + (next(s) % patience_level_range);
   atomic_store(&order->arrivalTime, time(NULL));
   order->count = length;
   order->dishList = dishList;
