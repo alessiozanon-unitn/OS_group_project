@@ -57,23 +57,23 @@ bool cookDish(Dish* dish, Kitchen* kitchen, atomic_int* busyTimePosition) {
 
     //Finished cooking
     for (int i = 0; i<dish->requiredSize; i++) { //Free all resource types
-      Resource* currentResource = &kitchen->resources[dish->requiredTypes[i]];
-      for (int ii = 0; ii<resourcesGot[i]; ii++) { //Signal as many as were acquired
-        sem_post(&currentResource->dirty); //Signal the dirty instead of clean
-      }
-      int semval = 0;
-      do {
-        semval = sem_wait(&currentResource->dirtyCountersMutex); //Must block to update array
-        if (semval == -1 && errno != EINTR) cookStop(SEMAPHORE_FAIL); //A signal can interrupt a wait
-      } while (semval != 0);
-      for (int ii = currentResource->dirtyDishesCount-1; ii>=0; ii--) { //Shift all array contents right by the new dishes to add
-        currentResource->dirtyResourceCounters[ii+resourcesGot[i]] = currentResource->dirtyResourceCounters[ii];
-      }
-      for (int ii = 0; ii<resourcesGot[i]; ii++) {
-        currentResource->dirtyResourceCounters[ii] = 1; //Insert new "used once" dishes
-      }
-      currentResource->dirtyDishesCount += resourcesGot[i]; //Update counter
-    sem_post(&currentResource->dirtyCountersMutex);
+        Resource* currentResource = &kitchen->resources[dish->requiredTypes[i]];
+        int semval = 0;
+        do {
+            semval = sem_wait(&currentResource->dirtyCountersMutex); //Must block to update array
+            if (semval == -1 && errno != EINTR) cookStop(SEMAPHORE_FAIL); //A signal can interrupt a wait
+        } while (semval != 0);
+        for (int ii = currentResource->dirtyDishesCount-1; ii>=0; ii--) { //Shift all array contents right by the new dishes to add
+            currentResource->dirtyResourceCounters[ii+resourcesGot[i]] = currentResource->dirtyResourceCounters[ii];
+        }
+        for (int ii = 0; ii<resourcesGot[i]; ii++) {
+            currentResource->dirtyResourceCounters[ii] = 1; //Insert new "used once" dishes
+        }
+        currentResource->dirtyDishesCount += resourcesGot[i]; //Update counter
+        sem_post(&currentResource->dirtyCountersMutex);
+        for (int ii = 0; ii<resourcesGot[i]; ii++) { //Signal as many as were acquired
+            sem_post(&currentResource->dirty); //Signal the dirty instead of clean
+        }
     }
 
     return true;
@@ -196,10 +196,6 @@ bool cookDishDirty(Dish* dish, Kitchen* kitchen, atomic_int* busyTimePosition) {
       }
 
     //Free clean resources from here on
-      for (int ii = 0; ii<resourcesGotClean[i]; ii++) { //Signal as many as were acquired
-        sem_post(&currentResource->dirty); //Signal the dirty instead of clean
-      }
-
       int semret = 0;
       do {
         semret = sem_wait(&currentResource->dirtyCountersMutex); //Must block to update array
@@ -214,6 +210,9 @@ bool cookDishDirty(Dish* dish, Kitchen* kitchen, atomic_int* busyTimePosition) {
       }
       currentResource->dirtyDishesCount += resourcesGotClean[i]; //Update counter
       sem_post(&currentResource->dirtyCountersMutex);
+      for (int ii = 0; ii<resourcesGotClean[i]; ii++) { //Signal as many as were acquired
+        sem_post(&currentResource->dirty); //Signal the dirty instead of clean
+      }
     }
 
     for (int i = 0; i<dish->requiredSize; i++) {

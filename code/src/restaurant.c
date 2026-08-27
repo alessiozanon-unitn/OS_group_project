@@ -239,7 +239,7 @@ int main(){
     return MALLOC_FAIL;
   }
   for (int i = 0; i<maxCustomers; i++) {
-    orderTable[i] = malloc(sizeof(Order*));
+    orderTable[i] = calloc(1, sizeof(Order*));
     if (orderTable[i] == NULL) {
       perror("Could not create order table pointer element");
       return MALLOC_FAIL;
