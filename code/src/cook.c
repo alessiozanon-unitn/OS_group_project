@@ -44,8 +44,11 @@ bool cookDish(Dish* dish, Kitchen* kitchen, atomic_int* busyTimePosition) {
   int resourcesGot[dish->requiredSize];
   int retval = 0;
 
-  for (int i = 0; i<dish->requiredSize && retval != -1; i++) {
+  for (int i = 0; i<dish->requiredSize; i++) {
     resourcesGot[i] = 0;
+  }
+
+  for (int i = 0; i<dish->requiredSize && retval != -1; i++) {
     for (int ii = 0; ii<dish->requiredCount[i] && retval != -1; ii++) { //Try to take as many cleans as possible
       retval = sem_trywait(&kitchen->resources[dish->requiredTypes[i]].clean);
       if (retval != -1) resourcesGot[i]++; //If clean gotten successfully update counter
@@ -88,26 +91,27 @@ bool cookDish(Dish* dish, Kitchen* kitchen, atomic_int* busyTimePosition) {
 }
 
 bool cookDishDirty(Dish* dish, Kitchen* kitchen, atomic_int* busyTimePosition) {
-  //attempt cleanCook, return true if that worked
-  //On failure of that, cook using the least dirty resources, update evreything accordingly
-  int resourcesGotClean[dish->requiredSize];
-  int resourcesGotDirty[dish->requiredSize];
-  int* dirtyTracker[dish->requiredSize];
-  int retval = 0;
+    //attempt cleanCook, return true if that worked
+    //On failure of that, cook using the least dirty resources, update evreything accordingly
+    int resourcesGotClean[dish->requiredSize];
+    int resourcesGotDirty[dish->requiredSize];
+    int* dirtyTracker[dish->requiredSize];
+    int retval = 0;
 
-  for (int i = 0; i<dish->requiredSize; i++) { //Make sure to initialize all these pointers to NULL for later
-    dirtyTracker[i] = NULL;
-  }
-
-
-  for (int i = 0; i<dish->requiredSize && retval != -1; i++) {
-    resourcesGotClean[i] = 0;
-    for (int ii = 0; ii<dish->requiredCount[i] && retval != -1; ii++) { //Try to take as many cleans as possible
-      retval = sem_trywait(&kitchen->resources[dish->requiredTypes[i]].clean);
-      if (retval != -1) resourcesGotClean[i]++; //If clean gotten successfully update counter
+    for (int i = 0; i<dish->requiredSize; i++) { //Make sure to initialize all these pointers/counters for later, since the acquisition loops below can bail out early (retval == -1) partway through and never reach every index
+      dirtyTracker[i] = NULL;
+      resourcesGotClean[i] = 0;
+      resourcesGotDirty[i] = 0;
     }
-  }
-  retval = 0; //Reset for acquiring dirty dishes
+
+
+    for (int i = 0; i<dish->requiredSize && retval != -1; i++) {
+      for (int ii = 0; ii<dish->requiredCount[i] && retval != -1; ii++) { //Try to take as many cleans as possible
+        retval = sem_trywait(&kitchen->resources[dish->requiredTypes[i]].clean);
+        if (retval != -1) resourcesGotClean[i]++; //If clean gotten successfully update counter
+      }
+    }
+    retval = 0; //Reset for acquiring dirty dishes
 
   for (int i = 0; i<dish->requiredSize && retval != -1; i++) {
     resourcesGotDirty[i] = 0;
