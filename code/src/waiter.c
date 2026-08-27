@@ -150,7 +150,7 @@ void* waiter(void* arg) {
       readret = read(rxArrival, &newClients[newCount], sizeof(int));
       if (readret == -1 && errno != EAGAIN) waiterStop(READ_FAIL);
       if (readret > 0) newCount++;
-    } while (readret != -1);
+    } while (readret > 0);
 
     if (newCount != 0) {
       for (int i = 0; i<newCount; i++) {
@@ -227,7 +227,7 @@ void* waiter(void* arg) {
             do {
               retwrite = write(txOrders[leastBusyCook], &sendOrder, sizeof(sendOrder)); //Send it
               if (retwrite == -1 && errno != EINTR) waiterStop(WRITE_FAIL);
-            } while (retwrite != 0);
+            } while (retwrite == -1);
           }
         }
       }

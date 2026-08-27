@@ -402,7 +402,6 @@ void* cook(void* arg) {
       if (readStatus > 0) {
         printf("Cook receved:\t%d\t%d\t%d\n", readStatus, receivedOrder[0], receivedOrder[1]);
         addTask(&queue, receivedOrder[0], receivedOrder[1]);
-        atomic_fetch_add(busyTime, menu.dishes[receivedOrder[0]].time);
       }
     } while (readStatus > 0); //Get all waiting orders in pipe
 
