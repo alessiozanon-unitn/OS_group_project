@@ -220,7 +220,7 @@ int main(){
     if (busyTime[i] == NULL) {
       perror("Could not generate busyTime element");
       return MALLOC_FAIL;
-    } else atomic_init(busyTime[i], 0); 
+    } else atomic_init(busyTime[i], 0);
   }
 
   Order*** orderTable = calloc(maxCustomers, sizeof(Order**));
@@ -399,9 +399,9 @@ int main(){
       }
       if (currentActives[i] != -1) deployedCustomers++; //Count the current customers in the restaurant
     }
-    
+
     status(0);
-    printf("Score:\t%d\nDeployed Customers:\t%d\nCustomer progress:\t%d\t%f%%\n\n\n", atomic_load(&score), deployedCustomers, customersSent,(double)customersSent/totalCustomers)*100.0;
+    printf("Score:\t%d\nDeployed Customers:\t%d\nCustomer progress:\t%d\t%f%%\n\n\n", atomic_load(&score), deployedCustomers, customersSent,(double)customersSent/totalCustomers*100.0);
     for (int i = 0; i<SLEEP_MULT; i++) custom_sleep();
   }
 
