@@ -19,7 +19,7 @@
 #include <signal.h>
 #include "errorcodes.h"
 
-const int SLEEP_MULT = 1; //How many in-game minutes to sleep between loops of the customer deployment, to encourage or discourage traffic spikes 
+const int SLEEP_MULT = 1; //How many in-game minutes to sleep between loops of the customer deployment, to encourage or discourage traffic spikes
 
 Menu menu;
 atomic_int score;
@@ -29,7 +29,7 @@ double gameSpeed;
 int customersSent = 0;
 int totalCustomers = 0;
 uint cookCount;
-atomic_int** busyTime; 
+atomic_int** busyTime;
 Kitchen* kitchen;
 atomic_int** customerStatuses;
 
@@ -75,8 +75,8 @@ int main(){
   const char* resources_file = getenv("RESOURCES_FILE");
   const int max_dishes_per_order = atoi(getenv("MAX_DISHES_PER_ORDER"));
   const int patience_level_range = atoi(getenv("PATIENCE_LEVEL_RANGE"));
-  
-  int pidHolder = creat("/tmp/restaurant.pid", S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH); 
+
+  int pidHolder = creat("/tmp/restaurant.pid", S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
   if (pidHolder < 0) {
     perror("Could not crate PID file in tmp");
     return FILE_FAIL;
@@ -94,8 +94,8 @@ int main(){
   //Prepare the signal handling system
   struct sigaction act;
   act.sa_handler = status;
-  act.sa_flags = SA_RESTART; //Saves up a lot of code on R/W EINTR 
-  
+  act.sa_flags = SA_RESTART; //Saves up a lot of code on R/W EINTR
+
   sigset_t usr1;
   sigemptyset(&usr1);
   sigaddset(&usr1, SIGUSR1);
@@ -126,7 +126,7 @@ int main(){
   //PID holders
   pthread_t Cooks[cookCount];
   pthread_t Waiters[waiterCount];
-  pthread_t Customers[maxCustomers];
+  pthread_t Customers[totalCustomers];
 
   //Run-status holders
   atomic_bool** cookRun = calloc(cookCount, sizeof(atomic_bool*));
@@ -186,12 +186,12 @@ int main(){
       fcntl(servingPipes[i][0], F_SETFL, O_NONBLOCK);
     }
   }
-  
+
   if (pipe(arrivalPipe) < 0) {
     perror("Could not create arrival Pipe");
     return PIPE_FAIL;
   }
-  
+
   fcntl(arrivalPipe[0], F_SETFL, O_NONBLOCK);
 
   //sender arrays
@@ -223,7 +223,7 @@ int main(){
       return MALLOC_FAIL;
     } else atomic_store(busyTime[i], 0);
   }
-  
+
   Order*** orderTable = calloc(maxCustomers, sizeof(Order**));
   if (orderTable == NULL) {
     perror("Could not create orderTable array");
@@ -255,7 +255,7 @@ int main(){
       return MALLOC_FAIL;
     } else atomic_init(arrivalTimeMatcher[i], 0);
   }
-  
+
   customerStatuses = calloc(totalCustomers, sizeof(atomic_int*));
   if (customerStatuses == NULL) {
     perror("Could not generate customer status array");
@@ -339,19 +339,19 @@ int main(){
 
   // Customers
   customersSent = 0;
-  
+
   //Attach signal handler and enable SIGUSR1
   if (sigaction(SIGUSR1, &act, NULL) != 0) {
     perror("Failed to set up sigaction");
     return THREAD_FAIL;
   }
   pthread_sigmask(SIG_UNBLOCK, &usr1, NULL);
-  
+
   int currentActives[maxCustomers]; //Local
   for (int i = 0; i<maxCustomers; i++) {
     currentActives[i] = -1; //No customer here value
   }
-  
+
   time_t startTime = time(NULL);
 
   // Customers loop
@@ -377,7 +377,7 @@ int main(){
         customerArgs->seed[1] = next_splitmix64();
         customerArgs->seed[2] = next_splitmix64();
         customerArgs->seed[3] = next_splitmix64();
-        customerArgs->status = customerStatuses[i];
+        customerArgs->status = customerStatuses[customersSent];
         customerArgs->orderSlot = orderTable[i];
         customerArgs->slotMut = orderTableMuts[i];
         customerArgs->rxServing = servingPipes[i][0];
@@ -385,23 +385,23 @@ int main(){
         customerArgs->txArrival = arrivalPipe[1];
         customerArgs->max_dishes_per_order = max_dishes_per_order;
         customerArgs->patience_level_range = patience_level_range;
-      
+
         //Temporarily block SIGUSR1
         pthread_sigmask(SIG_BLOCK, &usr1, NULL);
         // Spawns new customer
-        if (pthread_create(&Customers[i], NULL, &customer, (void*) customerArgs) != 0) {
+        if (pthread_create(&Customers[customersSent], NULL, &customer, (void*) customerArgs) != 0) {
           perror("Could not create customer thread");
           return THREAD_FAIL;
         }
         pthread_sigmask(SIG_UNBLOCK, &usr1, NULL);
-        
+
         currentActives[i] = customersSent;
         customersSent++;
       }
       if (currentActives[i] != -1) deployedCustomers++; //Count the current customers in the restaurant
     }
-    
-    printf("Score:\t%d\nCustomer progress:\t%d\t%f\%\n\n\n", atomic_load(&score), deployedCustomers, deployedCustomers/totalCustomers);
+
+    printf("Score:\t%d\nCustomer progress:\t%d\t%f%%\n\n\n", atomic_load(&score), deployedCustomers, (double)deployedCustomers/totalCustomers);
     for (int i = 0; i<SLEEP_MULT; i++) custom_sleep();
   }
 
@@ -430,7 +430,7 @@ int main(){
     pthread_join(Waiters[i], &return_value);
     returnWaiters[i] = (int)(intptr_t) return_value;
   }
-  
+
   remove("/tmp/restaurant.pid"); //Remove PID file
 
   return ALL_OK;
