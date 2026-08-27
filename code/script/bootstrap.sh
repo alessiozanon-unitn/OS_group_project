@@ -74,7 +74,7 @@ if [ ! -r "$file" ]; then
     exit 1
 fi
 
-var_names_numeric=("NUM_COOKS" "NUM_WAITERS" "MAX_CUSTOMERS" "TOTAL_CUSTOMERS" "GAME_SPEED" "RANDOM_SEED" "MAX_DISHES_PER_ORDER" "PATIENCE_LEVEL_RANGE")
+var_names_numeric=("NUM_COOKS" "NUM_WAITERS" "MAX_CUSTOMERS" "TOTAL_CUSTOMERS" "RANDOM_SEED" "MAX_DISHES_PER_ORDER" "PATIENCE_LEVEL_RANGE")
 var_names_strings=("MENU_FILE" "RESOURCES_FILE")
 
 # Checks that all variables are present
@@ -130,6 +130,12 @@ done < "$file"
 set -a
 source "$file"
 set +a
+
+# Checks the validity of GAME_SPEED
+if ! [[ "$GAME_SPEED" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
+    echo "GAME SPEED has an invalid value"
+    exit 1
+fi
 
 # Loads custom variables, if present as flags
 if [[ -v num_cooks ]]; then
