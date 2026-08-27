@@ -19,7 +19,7 @@ extern atomic_int score;
 extern double gameSpeed;
 
 const int ESUCCESSWEIGHT = 3;   //>=0, the entratainment adds some value
-const int EFAILWEIGHT = 16;      //>=0, the entratainment does nothing
+const int EFAILWEIGHT = 16;     //>=0, the entratainment does nothing
 const int ECRITFAILWEIGHT = 1;  //>=0, the entratainment subtracts some value
 const int MINSUCCESS = 30;       //How much a success will contribute at least (patience-minutes)
 const int MAXSUCCESS = 60;       //How much a success can contribute at most (patience-minutes)
