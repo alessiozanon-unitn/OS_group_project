@@ -13,7 +13,7 @@
 #include <pthread.h>
 #include <stdio.h>
 
-const int OVERWORK_THRESHOLD = 3;
+const int OVERWORK_THRESHOLD = 5;
 extern Menu menu;
 extern atomic_int score;
 extern double gameSpeed;
