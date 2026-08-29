@@ -362,7 +362,7 @@ int main(){
   // Customers loop
   for (int loopCount = 0; customersSent < totalCustomers; loopCount++) {
     int deployedCustomers = 0;
-    printf("Cycle %d(%ds)\n", loopCount, time(NULL)-startTime);
+    printf("Cycle %d(%ld)\n", loopCount, time(NULL)-startTime);
     //Check over all slots, making sure to stop if all customers to send have been
     for(int i = 0; i<maxCustomers && customersSent < totalCustomers; i++) {
       if(
