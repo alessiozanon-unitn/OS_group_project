@@ -482,6 +482,7 @@ void* cook(void* arg) {
         cleanResource(kitchen, busyTime);
       }
     }
+    usleep(50); //Microsleep to avoid busy-waiting
   }
 
   while (0<atomic_load(queue.queueSize)) {
