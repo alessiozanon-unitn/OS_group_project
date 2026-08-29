@@ -190,9 +190,9 @@ void* customer (void* arg) {
   } while (semret != 0);
 
   if(all_satisfied){ // If every order was satisfied
-    atomic_fetch_add(&score, lround(total_price * (1.0 - ((double) time_to_serve/(double)(*orderSlot)->patienceLevel))));
+    atomic_fetch_add(&score, (int)ceil(total_price * (1.0 - ((double) time_to_serve/(double)(*orderSlot)->patienceLevel))));
   }else{ // If patience ran out
-    atomic_fetch_sub(&score, lround(total_price * log2(1 + ((double) (*orderSlot)->patienceLevel / (1 + number_of_dishes_served)))));
+    atomic_fetch_sub(&score, (int)ceil(total_price * log2(1 + ((double) (*orderSlot)->patienceLevel / (1 + number_of_dishes_served)))));
   }
 
   // Exits
