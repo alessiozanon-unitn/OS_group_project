@@ -105,15 +105,15 @@ void* customer (void* arg) {
 
   sem_post(slotMut);
 
+  //Officially ready to wait
+  atomic_store(myStatus, WAITING);
+
   // Sends its id (index over the orderTable) over the pipe to a receiving waiter
   int writeret = 0;
   do {
     writeret = write(txArrival, &tableNumber, sizeof(int));
     if (writeret == -1 && errno != EINTR) customerStop(WRITE_FAIL, slotMut, orderSlot, myStatus);
   } while (writeret == -1);
-
-  //Officially ready to wait
-  atomic_store(myStatus, WAITING);
 
   // Customer loop
   bool all_satisfied;
@@ -168,13 +168,6 @@ void* customer (void* arg) {
       }
 
     } while (r != -1); //If the pipe is empty move on
-    // Decrements patience
-    do {
-      semret = sem_wait(slotMut);
-      if (semret == -1 && errno != EINTR) customerStop(SEMAPHORE_FAIL, slotMut, orderSlot, myStatus);
-    } while (semret != 0);
-    atomic_fetch_sub(&(*orderSlot)->patienceLevel, 1);
-    sem_post(slotMut);
 
     // Increments waited time
     time_to_serve++;
