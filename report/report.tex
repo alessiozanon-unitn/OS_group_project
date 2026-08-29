@@ -66,6 +66,7 @@ Shared Memory is used for all data that might need to be read or modified multip
 When data instead was inteded as single-use, Pipes were chosen instead. Their main benefit was the inherent thread-safety and consistency they provide, as their operations are atomic (within the bounds of some sizeable bit amount) and the removal-on-read guarantees that even on -to-many pipes only one thread will read any one message.
 This way, the operating system shoulders the burden to guarantee that only one waiter attends any client, and that mutliple cook-to-waiter or waiter-to-cook messages don't collide and are instead resolved orderly by each thread.
 
+\newpage
 \subsection{Waiter-Cook Scheduling}
 In order to maximise parallelism, every Waiter immediately assignes all the orders of their new client, using the following metrics in order of patience, speed of dish, price of dish. Each dish is then assigned to the currently least busy cook (as they're the ones most likely to complete it first).
 Each cook then looks at their queued dishes, and tries to fullfill them by order received, with some caveats.
@@ -78,5 +79,8 @@ A simple algorithm is used to decide what resource to clean by a cook. The reour
 Of course, once a reource is chosen, the one with the greatest penalty is cleaned.
 
 Once a dish is prepared, the cook sends it back to the waiter from who it was received (as the ID is packed in the dish request), and a queue system of "receipts" allows the waiter to immediately deliver the dish to the customer, updating the order struct
+
+\subsection{Testing}
+For testing we used the Unity library, which lets you create test functions that check memory with TEST\_ASSERT. We created a test function for kitchen and resource loading that use a test data folder. There is also one to test an unsatisfied customer and the relative change in score.
 
 \end{document}
