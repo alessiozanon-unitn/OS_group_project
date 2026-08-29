@@ -29,6 +29,7 @@ double gameSpeed;
 int totalCustomers = 0;
 uint cookCount;
 atomic_int** busyTime;
+atomic_int** busySize;
 Kitchen* kitchen;
 atomic_int** customerStatuses;
 
@@ -49,7 +50,7 @@ void status(int signum) {
 
   printf("Score:\t%d\nCurrent customers:\t%d\nUnsatisfied customers:\t%d\nErrored customers:\t%d\nProgress:\t%d/%d\n", atomic_load(&score), waiting, disappointment, dead, sent, totalCustomers);
   for (int i = 0; i<cookCount; i++) {
-    printf("Cook%d's queue size:\t%d\n", i, atomic_load(busyTime[i]));
+    printf("Cook%d's queue size (& time):\t%d\t(%d)\n", i, atomic_load(busySize[i]), atomic_load(busyTime[i]));
   }
   for (int i = 0; i<kitchen->resourceCount; i++) {
     int clean;
@@ -228,6 +229,17 @@ int main(){
       return MALLOC_FAIL;
     } else atomic_init(busyTime[i], 0);
   }
+  busySize = calloc(cookCount, sizeof(atomic_int*));
+  if (busySize == NULL) {
+    perror("Failed to create busySize array");
+    return MALLOC_FAIL;
+  } else for (int i = 0; i<cookCount; i++) {
+    busySize[i] = malloc(sizeof(atomic_int));
+    if (busySize[i] == NULL) {
+      perror("Could not generate busySize element");
+      return MALLOC_FAIL;
+    } else atomic_init(busySize[i], 0);
+  }
 
   Order*** orderTable = calloc(maxCustomers, sizeof(Order**));
   if (orderTable == NULL) {
@@ -300,6 +312,7 @@ int main(){
     cookArgs[i]->rxOrders = ordersPipes[i][0];
     cookArgs[i]->txDishes = dishSenders;
     cookArgs[i]->busyTime = busyTime[i];
+    cookArgs[i]->busySize = busySize[i];
   }
 
   for (int i = 0; i<waiterCount; i++) {
@@ -416,6 +429,7 @@ int main(){
   for(int i=0;i<totalCustomers;i++){
     void *return_value;
     pthread_join(Customers[i], &return_value);
+    printf("\tCustomer %d joined\n", i);
     returnCustomers[i] = (int)(intptr_t) return_value;
   }
 
@@ -426,18 +440,27 @@ int main(){
   int returnCooks[cookCount];
   //Joins cooks
   for(int i=0;i<cookCount;i++){
+    printf("\tRecalling Cook%d\n", i);
     atomic_store(cookRun[i], false);
     void *return_value;
     pthread_join(Cooks[i], &return_value);
+    if ((ErrorVals) return_value != ALL_OK) {
+      printf("Cook %d had an error!");
+    }
     returnCooks[i] = (int)(intptr_t) return_value;
   }
 
   int returnWaiters[waiterCount];
   //Joins waiters
   for(int i=0;i<waiterCount;i++){
+    printf("\tRecalling Waiter%d\n", i);
     atomic_store(waiterRun[i], false);
     void *return_value;
     pthread_join(Waiters[i], &return_value);
+    if ((ErrorVals) return_value != ALL_OK) {
+      printf("Waiter %d had an error!");
+    }
+
     returnWaiters[i] = (int)(intptr_t) return_value;
   }
 
@@ -483,7 +506,7 @@ int main(){
 
   remove("/tmp/restaurant.pid"); //Remove PID file
 
-  printf("Restaurant is closing\n\n");
+  printf("Restaurant is closing with score:%d\n\n", score);
 
   return ALL_OK;
 }
