@@ -36,13 +36,14 @@ The Restaurant itself is responsible for:
 There are three types of actors, each with its own thread type
 
 \subsubsection{Customers}
-Customers generete their order randomly and place it in one slot of the shared memory with the waiters, then announce their slot's position in the pipe.
-Customers repeatedly poll their order completion and wait time, and modify the Restaurant's score when leaving.
+Customers generete their order randomly and place it in one slot of the shared memory with the waiters, then announce their slot's position in the pipe they share with them.
+They also randomly generate their patience, within the range (patienceFloor, patienceFloor + PATIENCE\_LEVEL\_RANGE), with patienceFloor being the minimum time needed to satisfy their order.
+They repeatedly poll their order completion and wait game time. They either leave the restaurant because their patience ran out or because their order was completed, updating the restaurant's score accordingly.
 
 \subsubsection{Waiters}
 Waiters are notified of a customer arrival via a one-way many-to-many pipe, then read the dishes involved in their clients' orders from a shared allocated memory.
-The Waiter then chooses the best Cook for each dish, and sends the relevant information via one-way pipe.
-When not handling customer arrivals, waiters poll their assigned Cooks-to-Waiter pipe and attemp to entratain the Customer with lowest patience.
+The Waiter then chooses the best Cook for each dish, and sends the relevant information via a one-way pipe.
+When not handling customer arrivals, waiters poll their assigned Customer-to-Waiter pipe and attempt to entartain the Customer with lowest patience.
 
 \subsubsection{Cooks}
 Cooks receive dishes to prepare by reading a one-way many-to-one pipe, and upon completion of the dish write to the one-way many-to-one pipe with the waiter as receiver.
@@ -54,8 +55,8 @@ Each Cook is assigned an atomic integer, shared with all waiters, that is used t
 
 \section{Design Choices}
 \subsection{Randomization}
-The seed taken from .env is used by the Splitmix64 library to generate sub-seeds by Restaurant. A separate set of sub-seeds are given to thread, and are then used with a modified xoshiro256plusplus to generate random numbers in each predictably manner.
-This way, changing the seed parameter in .env allows for the powerful splitmix64 library to do the heavy lifting and introduce entropy in the sub-seeds, and the independence of the sub seeds removes the possibility of a race condition between value generations, keeping the simulation predictable.
+The seed taken from .env is used as seed for the Splitmix64 library, which is used to generate each thread's seed by Restaurant, passing them through the arg structs. Each thread then uses the xoshiro256plusplus library to generate all their random numbers. Since the latter library by default keeps a state (the seed) used by the function next(), we modified it to take the state as argument to the function, making it possible for each thread to use its own seed.
+All library used are pseudo-random, meaning that given the same initial seed, their generated numbers will be the same.
 
 \subsection{Extra-thread Communication}
 Comunication among threads is handled in two ways: Shared Memory and one-way Pipes
