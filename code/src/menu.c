@@ -13,7 +13,7 @@ int load_menu_from(const char *file_path, Kitchen *kitchen){
 
   if(menu_file == NULL){
     fprintf(stderr, "Couldn't open file %s\n", file_path);
-    return -1;
+    return FILE_NOT_FOUND;
   }
 
   int dishCount = 0;
