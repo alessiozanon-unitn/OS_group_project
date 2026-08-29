@@ -140,70 +140,70 @@ fi
 # Loads custom variables, if present as flags
 if [[ -v num_cooks ]]; then
     if [[ "$num_cooks" =~ ^[0-9]+$ ]]; then
-        declare "NUM_COOKS=$num_cooks"
+        declare -x "NUM_COOKS=$num_cooks"
     else
         echo "Custom num_cooks not a valid number, ignoring it"
     fi
 fi
 if [[ -v num_waiters ]]; then
     if [[ "$num_waiters" =~ ^[0-9]+$ ]]; then
-        declare "NUM_WAITERS=$num_waiters"
+        declare -x "NUM_WAITERS=$num_waiters"
     else
         echo "Custom num_waiters not a valid number, ignoring it"
     fi
 fi
 if [[ -v max_customers ]]; then
     if [[ "$max_customers" =~ ^[0-9]+$ ]]; then
-        declare "MAX_CUSTOMERS=$max_customers"
+        declare -x "MAX_CUSTOMERS=$max_customers"
     else
         echo "Custom max_customers not a valid number, ignoring it"
     fi
 fi
 if [[ -v total_customers ]]; then
     if [[ "$total_customers" =~ ^[0-9]+$ ]]; then
-        declare "TOTAL_CUSTOMERS=$total_customers"
+        declare -x "TOTAL_CUSTOMERS=$total_customers"
     else
         echo "Custom total_customers not a valid number, ignoring it"
     fi
 fi
 if [[ -v menu_file ]]; then
     if [[ -f "$menu_file" ]]; then
-        declare "MENU_FILE=$menu_file"
+        declare -x "MENU_FILE=$menu_file"
     else
         echo "Invalid custom value on menu_file, ignoring it"
     fi
 fi
 if [[ -v resources_file ]]; then
     if [[ -f "$resources_file" ]]; then
-        declare "RESOURCES_FILE=$resources_file"
+        declare -x "RESOURCES_FILE=$resources_file"
     else
         echo "Invalid custom value on resources_file, ignoring it"
     fi
 fi
 if [[ -v game_speed ]]; then
     if [[ "$game_speed" =~ ^[0-9]+$ ]]; then
-        declare "GAME_SPEED=$game_speed"
+        declare -x "GAME_SPEED=$game_speed"
     else
         echo "Custom game_speed not a valid number, ignoring it"
     fi
 fi
 if [[ -v random_seed ]]; then
     if [[ "$random_seed" =~ ^[0-9]+$ ]]; then
-        declare "RANDOM_SEED=$random_seed"
+        declare -x "RANDOM_SEED=$random_seed"
     else
         echo "Custom random_seed not a valid number, ignoring it"
     fi
 fi
 if [[ -v max_dishes_per_order ]]; then
     if [[ "$max_dishes_per_order" =~ ^[0-9]+$ ]]; then
-        declare "MAX_DISHES_PER_ORDER=$max_dishes_per_order"
+        declare -x "MAX_DISHES_PER_ORDER=$max_dishes_per_order"
     else
         echo "Custom max_dishes_per_order not a valid number, ignoring it"
     fi
 fi
 if [[ -v patience_level_range ]]; then
     if [[ "$patience_level_range" =~ ^[0-9]+$ ]]; then
-        declare "PATIENCE_LEVEL_RANGE=$patience_level_range"
+        declare -x "PATIENCE_LEVEL_RANGE=$patience_level_range"
     else
         echo "Custom patience_level_range not a valid number, ignoring it"
     fi
