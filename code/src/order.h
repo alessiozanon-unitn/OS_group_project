@@ -3,8 +3,8 @@
 
 #include "menu.h"
 #include <stdatomic.h>
+#include <stdbool.h>
 #include <time.h>
-#include "utils.h"
 
 typedef struct OrderNode {
   Dish* dish;

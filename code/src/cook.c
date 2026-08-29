@@ -3,8 +3,8 @@
 #include "menu.h"
 #include "kitchen.h"
 #include "errorcodes.h"
-
 #include <errno.h>
+#include <stdbool.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <math.h>
