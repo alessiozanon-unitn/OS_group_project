@@ -181,7 +181,7 @@ if [[ -v resources_file ]]; then
     fi
 fi
 if [[ -v game_speed ]]; then
-    if [[ "$game_speed" =~ ^[0-9]+$ ]]; then
+    if [[ "$game_speed" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
         declare -x "GAME_SPEED=$game_speed"
     else
         echo "Custom game_speed not a valid number, ignoring it"
