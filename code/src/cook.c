@@ -13,7 +13,8 @@
 #include <pthread.h>
 #include <stdio.h>
 
-const int OVERWORK_THRESHOLD = 5;
+const int OVERWORK_THRESHOLD = 15;
+
 extern Menu menu;
 extern atomic_int score;
 extern double gameSpeed;
@@ -336,34 +337,41 @@ void cleanResource(Kitchen* kitchen, atomic_int* busyTimePosition) {
 }
 
 typedef struct Queue {
-  int queueSize;
+  atomic_int* queueSize;
   int* dishIndexes;
   int* waiterIDs;
 } Queue;
 
 void addTask(Queue* queue, int dish, int waiter) {
+  
+  int queueSize = atomic_load(queue->queueSize);
+
   if (queue == NULL) return;
 
-  if (queue->queueSize == 0) {
+  if (queueSize == 0) {
     queue->dishIndexes = malloc(sizeof(int));
     queue->waiterIDs = malloc(sizeof(int));
-  } else if ((queue->queueSize & (queue->queueSize -1)) == 0) { //Test if queueSize is a power of two, if so then expand array
-    queue->dishIndexes = realloc(queue->dishIndexes, sizeof(int)*2*queue->queueSize);
-    queue->waiterIDs = realloc(queue->waiterIDs, sizeof(int)*2*queue->queueSize);
+  } else if ((queueSize & (queueSize -1)) == 0) { //Test if queueSize is a power of two, if so then expand array
+    queue->dishIndexes = realloc(queue->dishIndexes, sizeof(int)*2*queueSize);
+    queue->waiterIDs = realloc(queue->waiterIDs, sizeof(int)*2*queueSize);
   }
-  queue->dishIndexes[queue->queueSize] = dish;
-  queue->waiterIDs[queue->queueSize] = waiter;
-  queue->queueSize++; //queueSize acts as the index of the first free slot
+  queue->dishIndexes[queueSize] = dish;
+  queue->waiterIDs[queueSize] = waiter;
+  atomic_fetch_add(queue->queueSize, 1); //queueSize acts as the index of the first free slot
   if ((queue->dishIndexes == NULL || queue->waiterIDs == NULL) && errno == ENOMEM) cookStop(MALLOC_FAIL);
 }
 
 void rmTask(Queue* queue, int index) {
+
+  int queueSize = atomic_load(queue->queueSize);
+
   if (queue == NULL) return;
 
   if (index < 0) return; //Not valid index
-  if (queue->queueSize <= index) return; //Not valid index
-  queue->queueSize--; //queueSize is now the index of the last valid value
-  if (queue->queueSize == 0) {
+  if (queueSize <= index) return; //Not valid index
+  queueSize--; //queueSize is now the index of the last valid value
+  atomic_fetch_sub(queue->queueSize, 1);
+  if (queueSize == 0) {
     free(queue->dishIndexes);
     free(queue->waiterIDs);
     queue->dishIndexes = NULL;
@@ -371,14 +379,14 @@ void rmTask(Queue* queue, int index) {
     return;
   }
 
-  for (int i = index; i<queue->queueSize; i++) { //Move all the elements after index left
+  for (int i = index; i<queueSize; i++) { //Move all the elements after index left
     queue->dishIndexes[i] = queue->dishIndexes[i+1];
     queue->waiterIDs[i] = queue->waiterIDs[i+1];
   }
 
-  if ((queue->queueSize & (queue->queueSize-1)) == 0) { //If queueSize is a power of two, half of the array is empty
-    queue->dishIndexes = realloc(queue->dishIndexes, sizeof(int)*queue->queueSize);
-    queue->waiterIDs = realloc(queue->waiterIDs, sizeof(int)*queue->queueSize);
+  if ((queueSize & (queueSize-1)) == 0) { //If queueSize is a power of two, half of the array is empty
+    queue->dishIndexes = realloc(queue->dishIndexes, sizeof(int)*queueSize);
+    queue->waiterIDs = realloc(queue->waiterIDs, sizeof(int)*queueSize);
     if ((queue->dishIndexes == NULL || queue->waiterIDs == NULL) && errno == ENOMEM) cookStop(MALLOC_FAIL);
   }
 }
@@ -391,10 +399,11 @@ void* cook(void* arg) {
   int rxOrders = initData->rxOrders;
   int* txDishes = initData->txDishes;
   atomic_int* busyTime = initData->busyTime;
+  atomic_int* busySize = initData->busySize;
 
   free(initData);
 
-  Queue queue = (Queue){.queueSize = 0, .dishIndexes = NULL, .waiterIDs = NULL};
+  Queue queue = (Queue){.queueSize = busySize, .dishIndexes = NULL, .waiterIDs = NULL};
 
   while (atomic_load(runFlag)) {
     int readStatus;
@@ -412,7 +421,7 @@ void* cook(void* arg) {
     Resource* resources = kitchen->resources;
 
     //Iterate over list searching for a dish doable with only clean resources
-    for (int i = 0; i<queue.queueSize && !foundTask; i++) {
+    for (int i = 0; i<atomic_load(queue.queueSize) && !foundTask; i++) {
       bool allAvailable = true;
       toDoDish = &menu.dishes[queue.dishIndexes[i]];
       taskIndex = i;
@@ -439,11 +448,11 @@ void* cook(void* arg) {
         } while (retwrite == -1);
         rmTask(&queue, taskIndex); //Clear task from queue
       }
-    } else if (queue.queueSize <= OVERWORK_THRESHOLD) {
+    } else if (atomic_load(queue.queueSize) <= OVERWORK_THRESHOLD) {
       cleanResource(kitchen, busyTime);
     } else {
       //Do the first possible dish, as most likely to be urgent
-      for (int i = 0; i<queue.queueSize && !foundTask; i++) {
+      for (int i = 0; i<atomic_load(queue.queueSize) && !foundTask; i++) {
         bool allAvailable = true;
         toDoDish = &menu.dishes[queue.dishIndexes[i]];
         taskIndex = i;
@@ -475,7 +484,7 @@ void* cook(void* arg) {
     }
   }
 
-  while (0<queue.queueSize) {
+  while (0<atomic_load(queue.queueSize)) {
     rmTask(&queue, 0);
   }
 

@@ -14,6 +14,7 @@ typedef struct CookArg {
   int rxOrders;
   int* txDishes; //Array of size #Waiter
   atomic_int* busyTime; //Position on the busyTime array
+  atomic_int* busySize;
 } CookArg;
 
 /*
