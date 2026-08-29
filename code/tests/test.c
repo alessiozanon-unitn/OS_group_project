@@ -159,7 +159,7 @@ void test_unsatisfied_customer(){
     }
 
     int expected_score = lround(total_price * log2(1 + ((double) initial_patience / (1 + 0))));
-    TEST_ASSERT_EQUAL_INT(expected_score, atomic_load(&score));
+    TEST_ASSERT_EQUAL_INT(-expected_score, atomic_load(&score));
 
     pthread_join(customer_thread, NULL);
 
