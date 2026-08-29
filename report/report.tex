@@ -67,7 +67,7 @@ When data instead was inteded as single-use, Pipes were chosen instead. Their ma
 This way, the operating system shoulders the burden to guarantee that only one waiter attends any client, and that mutliple cook-to-waiter or waiter-to-cook messages don't collide and are instead resolved orderly by each thread.
 
 \subsection{Waiter-Cook Scheduling}
-In order to maximise parallelism, every Waiter immediately immediately assignes all the orders of their new client, using the following metrics in order of patience, speed of dish, price of dish. Each dish is then assigned to the currently least busy cook (as they're the ones most likely to get around to it first).
+In order to maximise parallelism, every Waiter immediately assignes all the orders of their new client, using the following metrics in order of patience, speed of dish, price of dish. Each dish is then assigned to the currently least busy cook (as they're the ones most likely to complete it first).
 Each cook then looks at their queued dishes, and tries to fullfill them by order received, with some caveats.
 The cook runs a first iteration where all dishes that cannot be done only with clean resources are ignored. This is to prevent a scenarion in simple FIFO where score is detracted due to dirty-use when the cook could do something else aproximately as productive without such drawbacks.
 Failing that, the cook examines their queue lenght, comparing it to a constant value decided at compile time to deicde whether it is "overworked".
