@@ -2,6 +2,13 @@
 
 file="./.env"
 
+# Error codes
+ALL_OK=0;
+FILE_NOT_FOUND=4;
+READ_FAIL=8;
+MISSING_ENV=12;
+INVALID_ENV=13;
+
 # Changes env file or env variable if given through a flag
 for arg in "$@"; do
     case "$arg" in
@@ -65,13 +72,13 @@ done
 # Checks that the file is present
 if [ ! -f "$file" ]; then
     echo ".env does not exist"
-    exit 1
+    exit $FILE_NOT_FOUND
 fi
 
 # Checks that the file is readable
 if [ ! -r "$file" ]; then
     echo ".env is not readable"
-    exit 1
+    exit $READ_FAIL
 fi
 
 var_names_numeric=("NUM_COOKS" "NUM_WAITERS" "MAX_CUSTOMERS" "TOTAL_CUSTOMERS" "RANDOM_SEED" "MAX_DISHES_PER_ORDER" "PATIENCE_LEVEL_RANGE")
@@ -96,7 +103,7 @@ done
 if [ ! ${#missing[@]} -eq 0 ]; then
     echo "Missing env variables in .env:
     ${missing[@]}"
-    exit 1
+    exit $MISSING_ENV
 fi
 
 # Checks the validity of numeric variables
@@ -105,7 +112,7 @@ while IFS='=' read -r name value || [ -n "$name" ]; do
         if [ "$var_name" = "$name" ]; then
             if ! [[ "$value" =~ ^[0-9]+$ ]]; then
                 echo "$name has an invalid value"
-                exit 1
+                exit $INVALID_ENV
             fi
             break
         fi
@@ -119,7 +126,7 @@ while IFS='=' read -r name value || [ -n "$name" ]; do
         if [ "$var_name" = "$name" ]; then
             if [[ ! -f "$value" ]]; then
                 echo "$name does not contain a valid path"
-                exit 1
+                exit $FILE_NOT_FOUND
             fi
             break
         fi
@@ -134,7 +141,7 @@ set +a
 # Checks the validity of GAME_SPEED
 if ! [[ "$GAME_SPEED" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
     echo "GAME SPEED has an invalid value"
-    exit 1
+    exit $INVALID_ENV
 fi
 
 # Loads custom variables, if present as flags

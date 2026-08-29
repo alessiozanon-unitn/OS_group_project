@@ -112,15 +112,21 @@ int main(){
   kitchen->resources = NULL;
   sem_init(&kitchen->sink, 0, 1);
 
+  int retval;
+
   // Loads resources to kitchen from file
-  load_resources_from(resources_file, kitchen);
+  retval = load_resources_from(resources_file, kitchen);
+  if (retval != ALL_OK) {
+    fprintf(stderr, "Failed to load resources file '%s'\n", resources_file);
+    return retval;
+  }
 
   // Loads menu from the csv
-  load_menu_from(menu_file, kitchen);
-
-  // For debugging
-  //print_kitchen(kitchen);
-  // print_menu(menu);
+  retval = load_menu_from(menu_file, kitchen);
+  if (retval != ALL_OK) {
+    fprintf(stderr, "Failed to load menu file '%s'\n", menu_file);
+    return retval;
+  }
 
   //PID holders
   pthread_t Cooks[cookCount];
@@ -414,7 +420,7 @@ int main(){
   }
 
   printf("Waiting for waiters and cooks to clock out\n\n");
-  
+
   //Now that the clients are joined we know for sure the restaurant can close down
 
   int returnCooks[cookCount];
@@ -446,7 +452,7 @@ int main(){
   }
   free(cookRun);
   free(busyTime);
-  
+
   for(int i = 0; i<waiterCount; i++) {
     free(waiterRun[i]);
     close(dishesPipes[i][1]);
@@ -454,7 +460,7 @@ int main(){
 
   }
   free(waiterRun);
-  
+
   for(int i = 0; i<maxCustomers; i++) {
     close(servingPipes[i][1]);
     close(servingPipes[i][0]);

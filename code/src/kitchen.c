@@ -1,4 +1,5 @@
 #include "kitchen.h"
+#include "errorcodes.h"
 #include <semaphore.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -9,7 +10,7 @@ int load_resources_from(const char* file_path, Kitchen *kitchen){
 
     if(resources_file == NULL){
         fprintf(stderr, "Couldn't open file %s\n", file_path);
-        return -1;
+        return FILE_NOT_FOUND;
     }
 
     char line[64];
@@ -21,13 +22,27 @@ int load_resources_from(const char* file_path, Kitchen *kitchen){
         char* seek = line;
 
         char* resource_name = strsep(&seek, ",");
+        if (resource_name == NULL || *resource_name == '\0') {
+            fprintf(stderr, "Malformed resource line\n");
+            fclose(resources_file);
+            return INVALID_RESOURCE;
+        }
+        if (!strcmp(resource_name, "resource")) continue;
 
-        if (!strcmp(resource_name, "resource"))
-            continue;
-
-        int quantity = atoi(strsep(&seek, ","));
-        int clean_time = atoi(strsep(&seek, ","));
-
+        char* quantity_str = strsep(&seek, ",");
+        char* clean_time_str = strsep(&seek, ",");
+        if (quantity_str == NULL || clean_time_str == NULL) {
+            fprintf(stderr, "Malformed resource line for '%s'\n", resource_name);
+            fclose(resources_file);
+            return INVALID_RESOURCE;
+        }
+        int quantity = atoi(quantity_str);
+        int clean_time = atoi(clean_time_str);
+        if (quantity <= 0 || clean_time < 0) {
+            fprintf(stderr, "Invalid quantity/clean_time for '%s'\n", resource_name);
+            fclose(resources_file);
+            return INVALID_RESOURCE;
+        }
         // Temporary resource to then add to the kitchen resource list
         Resource resource;
         resource.name = strdup(resource_name);
@@ -48,7 +63,12 @@ int load_resources_from(const char* file_path, Kitchen *kitchen){
         kitchen->resources[kitchen->resourceCount-1] = resource;
     }
 
-    fclose(resources_file);
+    if (kitchen->resourceCount == 0) {
+        fprintf(stderr, "Resources file '%s' defines no resources\n", file_path);
+        fclose(resources_file);
+        return INVALID_RESOURCE;
+    }
 
-    return 0;
+    fclose(resources_file);
+    return ALL_OK;
 }
