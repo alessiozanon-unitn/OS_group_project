@@ -399,11 +399,11 @@ int main(){
       }
       if (currentActives[i] != -1) deployedCustomers++; //Count the current customers in the restaurant
     }
-
-    status(0);
     printf("Score:\t%d\nDeployed Customers:\t%d\nCustomer progress:\t%d\t%f%%\n\n\n", atomic_load(&score), deployedCustomers, customersSent,(double)customersSent/totalCustomers*100.0);
     for (int i = 0; i<SLEEP_MULT; i++) custom_sleep();
   }
+
+  printf("Waiting for last customers to leave\n\n");
 
   //Wait for all clients to leave and joins them
   int returnCustomers[totalCustomers];
@@ -412,6 +412,10 @@ int main(){
     pthread_join(Customers[i], &return_value);
     returnCustomers[i] = (int)(intptr_t) return_value;
   }
+
+  printf("Waiting for waiters and cooks to clock out\n\n");
+  
+  //Now that the clients are joined we know for sure the restaurant can close down
 
   int returnCooks[cookCount];
   //Joins cooks
@@ -431,7 +435,49 @@ int main(){
     returnWaiters[i] = (int)(intptr_t) return_value;
   }
 
+  printf("Beginning cleanup\n\n");
+
+  //Now that the threads are over, close all outstating allocations
+  for(int i=0; i<cookCount; i++) {
+    free(cookRun[i]);
+    close(ordersPipes[i][1]);
+    close(ordersPipes[i][0]);
+    free(busyTime[i]);
+  }
+  free(cookRun);
+  free(busyTime);
+  
+  for(int i = 0; i<waiterCount; i++) {
+    free(waiterRun[i]);
+    close(dishesPipes[i][1]);
+    close(dishesPipes[i][0]);
+
+  }
+  free(waiterRun);
+  
+  for(int i = 0; i<maxCustomers; i++) {
+    close(servingPipes[i][1]);
+    close(servingPipes[i][0]);
+    free(*(orderTable[i]));
+    free(orderTable[i]);
+    free(orderTableMuts[i]);
+    free(arrivalTimeMatcher[i]);
+  }
+  free(orderTable);
+  free(orderTableMuts);
+  free(arrivalTimeMatcher);
+
+  for(int i = 0; i<totalCustomers; i++) {
+    free(customerStatuses[i]);
+  }
+  free(customerStatuses);
+
+  close(arrivalPipe[1]);
+  close(arrivalPipe[0]);
+
   remove("/tmp/restaurant.pid"); //Remove PID file
+
+  printf("Restaurant is closing\n\n");
 
   return ALL_OK;
 }

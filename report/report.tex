@@ -8,11 +8,11 @@
 }
 
 \title{\bf{Operating Systems Restaurant}}
-\author{Alessio Zanon \\ Lorenzo Maduro}
+\author{Alessio Zanon \\ Lorenzo Meduri}
 
 \pagestyle{fancy}
 \fancyhead[l]{Operating Systems Restaurant}
-\fancyhead[r]{Alessio Zanon, Lorenzo Maduro}
+\fancyhead[r]{Alessio Zanon, Lorenzo Meduri}
 \fancyfoot[c]{\thepage}
 
 \begin{document}
@@ -44,7 +44,6 @@ Customers repeatedly poll their order completion and wait time, and modify the R
 The seed taken from .env is used by the Splitmix64 library to generate sub-seeds by Restaurant. A separate set of sub-seeds are given to thread, and are then used with a modified xoshiro256plusplus to generate random numbers in each predictably manner.
 This way, changing the seed parameter in .env allows for the powerful splitmix64 library to do the heavy lifting and introduce entropy in the sub-seeds, and the independence of the sub seeds removes the possibility of a race condition between value generations, keeping the simulation predictable.
 
-
 \subsection{Extra-thread Communication}
 Comunication among threads is handled in two ways: Shared Memory and one-way Pipes
 
@@ -52,5 +51,18 @@ Shared Memory is used for all data that might need to be read or modified multip
 
 When data instead was inteded as single-use, Pipes were chosen instead. Their main benefit was the inherent thread-safety and consistency they provide, as their operations are atomic (within the bounds of some sizeable bit amount) and the removal-on-read guarantees that even on -to-many pipes only one thread will read any one message.
 This way, the operating system shoulders the burden to guarantee that only one waiter attends any client, and that mutliple cook-to-waiter or waiter-to-cook messages don't collide and are instead resolved orderly by each thread.
+
+\subsection{Waiter-Cook Scheduling}
+In order to maximise parallelism, every Waiter immediately immediately assignes all the orders of their new client, using the following metrics in order of patience, speed of dish, price of dish. Each dish is then assigned to the currently least busy cook (as they're the ones most likely to get around to it first).
+Each cook then looks at their queued dishes, and tries to fullfill them by order received, with some caveats.
+The cook runs a first iteration where all dishes that cannot be done only with clean resources are ignored. This is to prevent a scenarion in simple FIFO where score is detracted due to dirty-use when the cook could do something else aproximately as productive without such drawbacks.
+Failing that, the cook examines their queue lenght, comparing it to a constant value decided at compile time to deicde whether it is "overworked".
+If the cook is under the overworked threshold, it is considered the optimal choice to attempt to clean a reource if the sink is free, or even idle to not incur a score penalty.
+If the cook is over the threshold, then it will attempt to prepare the oldest dish in the queue where the sum of dirty and clean resources is sufficient. In this case, the cook will still attempt to use as many clean resources as possible, and the least used ones of among the dirty.
+
+A simple algorithm is used to decide what resource to clean by a cook. The reource with the highest priority is the one with the least clean units left (implying it is either a scarce resource, or a plentiful resource requently used) and least amount of dirty units left as a tie breaker.
+Of course, once a reource is chosen, the one with the greatest penalty is cleaned.
+
+Once a dish is prepared, the cook sends it back to the waiter from who it was received (as the ID is packed in the dish request), and a queue system of "receipts" allows the waiter to immediately deliver the dish to the customer, updating the order struct
 
 \end{document}
