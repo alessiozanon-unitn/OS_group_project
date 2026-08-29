@@ -1,4 +1,4 @@
-\documentclass[12pt]{article}
+\documentclass{article}
 
 \usepackage{fancyhdr}
 \usepackage{hyperref}
@@ -7,11 +7,11 @@
     linkcolor=blue
 }
 
-\title{\bf{Operating Systems Restaurant}}
+\title{\bf{Operating Systems  \\[0.3cm] \large Restaurant (Project 5)}}
 \author{Alessio Zanon \\ Lorenzo Meduri}
 
 \pagestyle{fancy}
-\fancyhead[l]{Operating Systems Restaurant}
+\fancyhead[l]{Operating Systems}
 \fancyhead[r]{Alessio Zanon, Lorenzo Meduri}
 \fancyfoot[c]{\thepage}
 
@@ -20,24 +20,37 @@
 \newpage
 \tableofcontents \label{Contents}
 
-\section{Description}
 
-The Restaurant itself is only responsible for the preparation and dispatching of threads. 
-There are three thread types: \begin{itemize}
-  \item Cooks
-  \item Waiters
-  \item Customers
+\newpage
+
+\section{Description}
+The Restaurant itself is responsible for:
+\begin{itemize}
+	\item Loading environment variables
+	\item Loading resources and the menu from data files (menu.csv and resources.csv)
+	\item Thread arguments creation, through \textbf{CookArg}, \textbf{WaiterArg}, \textbf{CustomerArg}, e.g. pipes, mutexes/semaphores, random seeds....
+	\item Spawning and joining the threads
 \end{itemize}
 
-Cooks receive dishes to prepare by reading a one-way many-to-one pipe, and upon completion of the dish write to the one-way many-to-one pipe with the waiter as receiver.
-Each Cook is assigned an atomic integer, shared with all waiters, that is used to keep track of their queue.
+\subsection{Actors}
+There are three types of actors, each with its own thread type
 
+\subsubsection{Customers}
+Customers generete their order randomly and place it in one slot of the shared memory with the waiters, then announce their slot's position in the pipe.
+Customers repeatedly poll their order completion and wait time, and modify the Restaurant's score when leaving.
+
+\subsubsection{Waiters}
 Waiters are notified of a customer arrival via a one-way many-to-many pipe, then read the dishes involved in their clients' orders from a shared allocated memory.
 The Waiter then chooses the best Cook for each dish, and sends the relevant information via one-way pipe.
 When not handling customer arrivals, waiters poll their assigned Cooks-to-Waiter pipe and attemp to entratain the Customer with lowest patience.
 
-Customers generete their order randomly and place it in one slot of the shared memory with the waiters, then announce their slot's position in the pipe.
-Customers repeatedly poll their order completion and wait time, and modify the Restaurant's score when leaving.
+\subsubsection{Cooks}
+Cooks receive dishes to prepare by reading a one-way many-to-one pipe, and upon completion of the dish write to the one-way many-to-one pipe with the waiter as receiver.
+Each Cook is assigned an atomic integer, shared with all waiters, that is used to keep track of their queue.
+
+Cooks receive dishes to prepare by reading a one-way many-to-one pipe, and upon completion of the dish write to the one-way many-to-one pipe with the waiter as receiver.
+Each Cook is assigned an atomic integer, shared with all waiters, that is used to keep track of their queue.
+
 
 \section{Design Choices}
 \subsection{Randomization}
