@@ -57,5 +57,9 @@ dkms.conf
 
 # debug information files
 *.dwo
-
 *.json
+
+# Latex
+report/*
+!report/report.tex
+!report/report.pdf
